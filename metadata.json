@@ -1,0 +1,10 @@
+{
+  "name": "Russian With My Daughter",
+  "description": "A mobile-first web app to help an English-speaking parent communicate naturally with their Russian-speaking child.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
