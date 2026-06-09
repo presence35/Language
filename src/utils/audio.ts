@@ -65,64 +65,38 @@ export const playAudioWithLang = async (text: string, lang: string = 'ru', slow:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, slow, lang }),
     });
-    
-    // If we've been superseded by a newer click during the network fetch, stop!
-    if (myPlaybackId !== currentPlaybackId) {
-      return;
-    }
 
-    if (!res.ok) {
-      throw new Error("Failed to fetch audio from server");
-    }
+    if (myPlaybackId !== currentPlaybackId) return;
 
-    const data = await res.json();
-    if (myPlaybackId !== currentPlaybackId) {
-      return;
-    }
+    if (res.ok) {
+      const data = await res.json();
+      if (myPlaybackId !== currentPlaybackId) return;
 
-    if (data.audio && data.mimeType) {
-      return new Promise((resolve) => {
-        const audio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
-        activeAudios.add(audio);
-        if (slow) {
-          audio.playbackRate = 0.6; // Slow down audio playback
-        }
-        audio.onended = () => {
-          activeAudios.delete(audio);
-          resolve();
-        };
-        audio.onerror = (e) => {
-          console.error("Audio playback error:", e);
-          activeAudios.delete(audio);
-          if (myPlaybackId === currentPlaybackId) {
-            fallbackWebSpeech(text, lang, slow).then(resolve);
-          } else {
-            resolve();
-          }
-        };
-        
-        if (myPlaybackId !== currentPlaybackId) {
-          activeAudios.delete(audio);
-          resolve();
-          return;
-        }
-
-        audio.play().catch(e => {
-          console.error("Audio play blocked:", e);
-          activeAudios.delete(audio);
-          if (myPlaybackId === currentPlaybackId) {
-            fallbackWebSpeech(text, lang, slow).then(resolve);
-          } else {
-            resolve();
-          }
+      if (data.audio && data.mimeType) {
+        return new Promise((resolve) => {
+          const audio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
+          activeAudios.add(audio);
+          if (slow) audio.playbackRate = 0.6;
+          audio.onended = () => { activeAudios.delete(audio); resolve(); };
+          audio.onerror = () => {
+            activeAudios.delete(audio);
+            if (myPlaybackId === currentPlaybackId) fallbackWebSpeech(text, lang, slow).then(resolve);
+            else resolve();
+          };
+          if (myPlaybackId !== currentPlaybackId) { activeAudios.delete(audio); resolve(); return; }
+          audio.play().catch(() => {
+            activeAudios.delete(audio);
+            if (myPlaybackId === currentPlaybackId) fallbackWebSpeech(text, lang, slow).then(resolve);
+            else resolve();
+          });
         });
-      });
+      }
     }
-  } catch (error) {
-    // Silently fallback to Web Speech API when backend is missing (e.g. static hosting)
-    if (myPlaybackId === currentPlaybackId) {
-      await fallbackWebSpeech(text, lang, slow);
-    }
+  } catch {}
+
+  // Fallback: server unavailable (static deployment) or non-200
+  if (myPlaybackId === currentPlaybackId) {
+    await fallbackWebSpeech(text, lang, slow);
   }
 };
 

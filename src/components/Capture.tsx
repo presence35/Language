@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { playAudioWithLang, playAudioUrl } from '../utils/audio';
 import { LANGUAGE_FLAGS } from '../utils/language';
 
+const DEBUG = true;
+
 interface TranslationResult {
   id: string;
   transcription: string;
@@ -246,8 +248,16 @@ export function Capture() {
     }
   }, [settings.enabledLanguages, settings.defaultTargetLanguage, speechLanguage]);
 
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const debugLog = (msg: string) => {
+    if (!DEBUG) return;
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    setDebugLogs(prev => [...prev.slice(-19), line]);
+  };
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const latestAudioUrlRef = useRef<string | null>(null);
   const canceledRef = useRef<boolean>(false);
   const recordingTimeoutRef = useRef<any>(null);
   
@@ -289,6 +299,7 @@ export function Capture() {
   };
 
   const processInput = async (text: string, audioUrlStr?: string | null) => {
+    debugLog(`processInput text="${text}" lang=${speechLanguage} defaultTarget=${settings.defaultTargetLanguage}`);
     setLoading(true);
     try {
       const sl = speechLanguage;
@@ -299,15 +310,22 @@ export function Capture() {
         tl = 'en';
       }
 
+      debugLog(`Translating… sl=${sl} tl=${tl} q="${text}"`);
+
       const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(text)}`;
       const response = await fetch(url);
-      if (!response.ok) throw new Error("Translation failed");
+      if (!response.ok) {
+        debugLog(`Translation HTTP ${response.status}`);
+        throw new Error("Translation failed");
+      }
 
       const json = await response.json();
       const translation = json[0].map((item: any) => item[0]).join('').trim();
 
       const ruPhrase = sl === 'en' ? translation : text;
       const enPhrase = sl === 'en' ? text : translation;
+
+      debugLog(`Translation done ru="${ruPhrase}" en="${enPhrase}"`);
 
       const breakdown = await getWordBreakdownLocal(ruPhrase, sl === 'en' ? tl : sl);
 
@@ -320,7 +338,7 @@ export function Capture() {
         sourceLanguage: sl,
         targetLanguage: tl as 'en' | 'ru' | 'es',
         wordBreakdown: breakdown,
-        audioUrl: audioUrlStr || null,
+        audioUrl: audioUrlStr || latestAudioUrlRef.current || null,
         timestamp: Date.now()
       };
 
@@ -331,9 +349,12 @@ export function Capture() {
       setHistoryIndex(0);
       setIsHistoryVisible(true);
 
+      debugLog(`Playing TTS… "${ruPhrase}" (${sl})`);
       await playAudioWithLang(ruPhrase, sl);
-    } catch (e) {
+      debugLog(`TTS done`);
+    } catch (e: any) {
       console.error(e);
+      debugLog(`Error: ${e.message || e}`);
       alert('Oops! Instant translation ran into a hitch, please try again.');
     } finally {
       setLoading(false);
@@ -343,7 +364,9 @@ export function Capture() {
   };
 
   const handleAnimalClick = async (animal: Animal) => {
+    debugLog(`handleAnimalClick animal=${animal.id} recording=${recording} SpeechRecognition=${typeof SpeechRecognition}`);
     if (recording) {
+      debugLog('Already recording — stopping current session');
       if (localRecognitionRef.current) {
         try { localRecognitionRef.current.stop(); } catch (e) {}
       }
@@ -357,10 +380,12 @@ export function Capture() {
     setActiveAnimal(animal);
     setRecording(true);
     canceledRef.current = false;
+    latestAudioUrlRef.current = null;
 
     if (!SpeechRecognition) {
        setRecording(false);
        setActiveAnimal(null);
+       debugLog("SpeechRecognition API not found");
        alert("Native speech recognition is not supported in this browser. Please try using Chrome for voice support.");
        return;
     }
@@ -369,25 +394,31 @@ export function Capture() {
     try {
       const recognition = new SpeechRecognition();
       recognition.lang = speechLanguage === 'en' ? 'en-US' : speechLanguage === 'es' ? 'es-ES' : speechLanguage === 'fr' ? 'fr-FR' : speechLanguage === 'de' ? 'de-DE' : 'ru-RU';
+      debugLog(`recognition.lang set to "${recognition.lang}"`);
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
       let resultFired = false;
+      recognition.onaudiostart = () => debugLog('Audio started (mic receiving)');
+      recognition.onaudioend = () => debugLog('Audio ended (mic stopped)');
       recognition.onresult = async (event: any) => {
         resultFired = true;
         const transcript = event.results[0][0].transcript;
+        debugLog(`Speech recognized: "${transcript}"`);
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             mediaRecorderRef.current.stop();
         }
         if (transcript) {
            await processInput(transcript);
         } else {
+           debugLog('Empty transcript received');
            setLoading(false);
            setActiveAnimal(null);
         }
       };
 
       recognition.onerror = (err: any) => {
+        debugLog(`SpeechRecognition error: ${err.error} ${err.message || ''}`);
         setRecording(false);
         setLoading(false);
         setActiveAnimal(null);
@@ -397,6 +428,7 @@ export function Capture() {
       recognition.onend = () => {
         setRecording(false);
         if (!resultFired) {
+           debugLog('Recognition ended with NO result (no speech detected or timeout)');
            setLoading(false);
            setActiveAnimal(null);
         }
@@ -405,51 +437,58 @@ export function Capture() {
 
       localRecognitionRef.current = recognition;
       recognition.start();
-    } catch (err) {
+    } catch (err: any) {
+      debugLog(`SpeechRecognition constructor/start threw: ${err.name}: ${err.message || err}`);
       setRecording(false);
+      setActiveAnimal(null);
       return;
     }
 
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (!isMobile) {
-      navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-        if (canceledRef.current) {
-          stream.getTracks().forEach(track => track.stop());
-          return;
+    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+      if (canceledRef.current) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
         }
-        const mediaRecorder = new MediaRecorder(stream);
-        mediaRecorderRef.current = mediaRecorder;
-        audioChunksRef.current = [];
+      };
 
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) {
-            audioChunksRef.current.push(e.data);
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        if (canceledRef.current) return;
+        if (audioChunksRef.current.length > 0) {
+          let mimeType = 'audio/webm';
+          if (MediaRecorder.isTypeSupported('audio/webm')) {
+            mimeType = 'audio/webm';
+          } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            mimeType = 'audio/mp4';
+          } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+            mimeType = 'audio/ogg';
+          } else {
+            mimeType = 'audio/wav';
           }
-        };
-
-        mediaRecorder.onstop = () => {
-          stream.getTracks().forEach((track) => track.stop());
-          if (canceledRef.current) return;
-          if (audioChunksRef.current.length > 0) {
-            const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-            const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-            const url = URL.createObjectURL(audioBlob);
-            // Link url to the latest result (which processInput just pushed)
-            setTimeout(() => {
-                setResultsHistory(prev => {
-                    if (prev.length === 0) return prev;
-                    const newArr = [...prev];
-                    newArr[0] = { ...newArr[0], audioUrl: url };
-                    return newArr;
-                });
-            }, 500); // give processInput time to state update
-          }
-        };
-        mediaRecorder.start(200);
-      }).catch(err => {
-        // ignore
-      });
-    }
+          const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+          const url = URL.createObjectURL(audioBlob);
+          latestAudioUrlRef.current = url;
+          // Immediately associate the audio on top of history (either existing or to be appended)
+          setResultsHistory(prev => {
+            if (prev.length === 0) return prev;
+            const newArr = [...prev];
+            newArr[0] = { ...newArr[0], audioUrl: url };
+            return newArr;
+          });
+        }
+      };
+      mediaRecorder.start(200);
+    }).catch((err: any) => {
+      debugLog(`getUserMedia failed: ${err.name}: ${err.message || err}`);
+    });
   };
 
   const playAudio = async (text: string, lang: string = 'ru') => {
@@ -535,6 +574,11 @@ export function Capture() {
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
+      {DEBUG && debugLogs.length > 0 && (
+        <div className="bg-slate-900/90 border border-slate-700 rounded-xl p-2 text-xs font-mono text-yellow-300 max-h-28 overflow-y-auto space-y-0.5">
+          {debugLogs.map((l, i) => <div key={i}>{l}</div>)}
+        </div>
+      )}
       <div className="flex w-full justify-between items-center gap-1 sm:gap-2 pb-2">
         {settings.showAnimals ? ANIMALS.map((animal) => {
           const isActive = activeAnimal?.id === animal.id;
@@ -616,7 +660,11 @@ export function Capture() {
                             onClick={(e) => {
                                 e.stopPropagation();
                                 const utterance = new SpeechSynthesisUtterance(res.transcription);
-                                utterance.lang = res.sourceLanguage === 'ru' ? 'ru-RU' : 'en-US';
+                                if (res.sourceLanguage === 'ru') utterance.lang = 'ru-RU';
+                                else if (res.sourceLanguage === 'es') utterance.lang = 'es-ES';
+                                else if (res.sourceLanguage === 'fr') utterance.lang = 'fr-FR';
+                                else if (res.sourceLanguage === 'de') utterance.lang = 'de-DE';
+                                else utterance.lang = 'en-US';
                                 window.speechSynthesis.speak(utterance);
                             }}
                             className={`transition-colors flex items-center justify-center p-1 rounded w-6 h-6 shrink-0 cursor-pointer pointer-events-auto ${isHistorical ? 'text-slate-400 hover:text-slate-300 bg-slate-800/80' : 'text-indigo-400 hover:text-indigo-300 bg-indigo-900/40'}`}
@@ -675,8 +723,6 @@ export function Capture() {
                         <button 
                           onClick={() => {
                             setResultsHistory(prev => prev.filter(r => r.id !== res.id));
-                            const savedMatch = phrases?.find(p => p.russianPhrase.toLowerCase() === res.russianPhrase.toLowerCase());
-                            if (savedMatch) deletePhrase(savedMatch.id);
                           }} 
                           className="w-[56px] h-[56px] flex items-center justify-center bg-slate-900 border border-slate-800 rounded-xl text-red-500/80 hover:text-red-400 hover:bg-red-950/30 transition-colors cursor-pointer flex-shrink-0"
                           title="Delete"

@@ -35,7 +35,8 @@ export interface AppSettings {
   };
   showRecentTranslations: boolean;
   notificationsEnabled: boolean;
-  notificationFrequency: 'daily' | 'hourly' | 'few_hours';
+  notificationFrequency: '2h' | '6h' | '24h';
+  notificationSessionSize: number;
   showAnimals: boolean;
   showRecentPhrases: boolean;
   useAiForTranslation: boolean;

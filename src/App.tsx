@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useStorage } from './hooks/useStorage';
 import { Capture } from './components/Capture';
@@ -11,6 +6,7 @@ import { Practice } from './components/Practice';
 import { Settings } from './components/Settings';
 import { Stats } from './components/Stats';
 import { Mic, BookHeart, Dumbbell, Settings as SettingsIcon, BarChart3 } from 'lucide-react';
+import { generateSession } from './utils/session';
 
 type Tab = 'capture' | 'collection' | 'practice' | 'stats' | 'settings';
 
@@ -19,58 +15,135 @@ export default function App() {
   const { phrases, settings } = useStorage();
   const notificationInterval = useRef<any>(null);
 
-  useEffect(() => {
-    if (settings.notificationsEnabled && Notification.permission === 'granted') {
-      if (notificationInterval.current) clearInterval(notificationInterval.current);
-          notificationInterval.current = setInterval(() => {
-        const storedPause = localStorage.getItem('practice_pause_until');
-        const isPaused = storedPause && Date.now() < parseInt(storedPause, 10);
-        
-        const lastNotifiedStr = localStorage.getItem('last_notified_time');
-        const lastNotified = lastNotifiedStr ? parseInt(lastNotifiedStr, 10) : 0;
-        const now = Date.now();
-        
-        let shouldCheck = false;
-        const hoursSince = (now - lastNotified) / (1000 * 60 * 60);
+  const storeNotificationState = async () => {
+    if (!('caches' in window)) return;
+    try {
+      const cache = await caches.open('notification-state');
+      const data = JSON.stringify({
+        phrases: phrases.map(p => ({ id: p.id, russianPhrase: p.russianPhrase, difficultyScore: p.difficultyScore, dateAdded: p.dateAdded, targetLang: p.targetLang })),
+        lastNotified: parseInt(localStorage.getItem('last_notified_time') || '0', 10),
+        frequency: settings.notificationFrequency,
+        defaultTargetLanguage: settings.defaultTargetLanguage,
+        notificationSessionSize: settings.notificationSessionSize || 10,
+      });
+      cache.put('/notification-state', new Response(data, { headers: { 'Content-Type': 'application/json' } }));
+    } catch {}
+  };
 
-        if (settings.notificationFrequency === 'hourly' && hoursSince >= 1) shouldCheck = true;
-        if (settings.notificationFrequency === 'few_hours' && hoursSince >= 3) shouldCheck = true;
-        if (settings.notificationFrequency === 'daily' && hoursSince >= 24) shouldCheck = true;
+  const storePendingIds = async (ids: string[]) => {
+    localStorage.setItem('pending_practice_words', JSON.stringify(ids));
+    try {
+      if ('caches' in window) {
+        const cache = await caches.open('notification-state');
+        cache.put('/pending-practice-ids', new Response(JSON.stringify(ids), { headers: { 'Content-Type': 'application/json' } }));
+      }
+    } catch {}
+  };
 
-        // If first launch, wait a bit before notifying instead of immediately.
-        if (!lastNotifiedStr) {
-           localStorage.setItem('last_notified_time', now.toString());
-           return;
-        }
-        
-        if (phrases.length > 0 && !isPaused && Notification.permission === 'granted' && shouldCheck) {
-           const duePhrases = phrases.filter(p => {
-             const daysSince = Math.max(0.1, (now - p.dateAdded) / (1000 * 60 * 60 * 24));
-             return p.difficultyScore > 20 && daysSince >= 1;
-           });
-           
-           if (duePhrases.length > 0) {
-             const randomPhrase = duePhrases[Math.floor(Math.random() * duePhrases.length)];
-             const notif = new Notification(`🇺🇦 Quick Recall Challenge!`, {
-                body: `Do you remember what "${randomPhrase.russianPhrase}" means? Click to take a quick test!`,
-                icon: '/icon.svg'
-             });
-             localStorage.setItem('last_notified_time', now.toString());
+  const checkAndNotify = async () => {
+    if (!settings.notificationsEnabled || Notification.permission !== 'granted') return;
 
-             notif.onclick = () => {
-                window.focus();
-                setActiveTab('practice');
-             }
-           }
-        }
-      }, 5 * 60 * 1000); // 5 mins interval
-    } else {
-       if (notificationInterval.current) clearInterval(notificationInterval.current);
+    const lastNotifiedStr = localStorage.getItem('last_notified_time');
+    const lastNotified = lastNotifiedStr ? parseInt(lastNotifiedStr, 10) : 0;
+    const now = Date.now();
+
+    if (!lastNotifiedStr) {
+      localStorage.setItem('last_notified_time', now.toString());
+      return;
     }
+
+    const hoursSince = (now - lastNotified) / (1000 * 60 * 60);
+
+    let shouldCheck = false;
+    if (settings.notificationFrequency === '2h' && hoursSince >= 2) shouldCheck = true;
+    else if (settings.notificationFrequency === '6h' && hoursSince >= 6) shouldCheck = true;
+    else if (settings.notificationFrequency === '24h' && hoursSince >= 24) shouldCheck = true;
+
+    if (!shouldCheck || phrases.length === 0) return;
+
+    const includeMastered = Math.random() < 0.1;
+    const session = generateSession(phrases, settings.notificationSessionSize || 10, includeMastered);
+    if (session.length === 0) return;
+
+    const ids = session.map(p => p.id);
+    await storePendingIds(ids);
+
+    const teasers = session.slice(0, Math.min(3, session.length));
+    const teaserText = teasers.map(p => p.russianPhrase).join(', ');
+    const title = 'Ready to practice?';
+    const body = `Review words like: ${teaserText} — Tap to start a ${session.length}-word session!`;
+
+    if (navigator.serviceWorker?.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'show-notification',
+        title,
+        body,
+        icon: '/icon.svg',
+      });
+    } else {
+      const notif = new Notification(title, { body, icon: '/icon.svg' });
+      notif.onclick = () => {
+        window.focus();
+        setActiveTab('practice');
+      };
+    }
+
+    localStorage.setItem('last_notified_time', now.toString());
+  };
+
+  useEffect(() => {
+    const startInterval = () => {
+      if (notificationInterval.current) clearInterval(notificationInterval.current);
+      notificationInterval.current = setInterval(() => {
+        checkAndNotify();
+        storeNotificationState();
+      }, 60 * 60 * 1000);
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkAndNotify();
+      }
+    };
+
+    if (settings.notificationsEnabled && Notification.permission === 'granted') {
+      startInterval();
+      document.addEventListener('visibilitychange', handleVisibility);
+
+      storeNotificationState();
+
+      navigator.serviceWorker.ready.then((reg) => {
+        if ('periodicSync' in reg) {
+          try {
+            (reg as any).periodicSync.register('check-notifications', {
+              minInterval: 60 * 60 * 1000,
+            });
+          } catch {}
+        }
+      });
+    } else {
+      if (notificationInterval.current) clearInterval(notificationInterval.current);
+    }
+
     return () => {
-       if (notificationInterval.current) clearInterval(notificationInterval.current);
+      if (notificationInterval.current) clearInterval(notificationInterval.current);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [phrases.length, settings.notificationsEnabled, settings.notificationFrequency]);
+
+  useEffect(() => {
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'navigate-practice') {
+        if (event.data?.wordIds) {
+          localStorage.setItem('pending_practice_words', JSON.stringify(event.data.wordIds));
+        }
+        setActiveTab('practice');
+      }
+    };
+
+    navigator.serviceWorker?.addEventListener('message', handleSWMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', handleSWMessage);
+  }, []);
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'capture', label: 'Capture', icon: <Mic className="w-5 h-5 sm:w-6 sm:h-6" /> },
@@ -81,8 +154,8 @@ export default function App() {
   ];
 
   return (
-    <div className="flex flex-col h-screen max-w-lg mx-auto bg-slate-950 border-x border-slate-900 shadow-2xl overflow-hidden font-sans">
-      
+    <div className="flex flex-col h-[100dvh] max-w-lg mx-auto bg-slate-950 border-x border-slate-900 shadow-2xl overflow-hidden font-sans">
+
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto no-scrollbar">
         {activeTab === 'capture' && <Capture />}
@@ -93,7 +166,7 @@ export default function App() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="bg-slate-900 border-t border-slate-800 pb-safe z-50">
+      <nav className="bg-slate-900 border-t border-slate-800 pb-safe z-50 shrink-0 sticky bottom-0">
         <div className="flex justify-around items-center p-2">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
@@ -119,4 +192,3 @@ export default function App() {
     </div>
   );
 }
-

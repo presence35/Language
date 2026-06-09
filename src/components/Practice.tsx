@@ -1,19 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStorage } from '../hooks/useStorage';
-import { PlayCircle, Eye, CheckCircle, XCircle, Clock, Zap, Mic, MicOff } from 'lucide-react';
+import { PlayCircle, Eye, CheckCircle, XCircle, Zap, Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playAudioWithLang } from '../utils/audio';
+import { generateSession } from '../utils/session';
 import type { Phrase } from '../types';
 
+const DEBUG = true;
+
 export function Practice() {
-  const { phrases, failures, updatePhrase, settings, updatePracticeStats } = useStorage();
+  const { phrases, updatePhrase, updatePracticeStats } = useStorage();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [playingAudio, setPlayingAudio] = useState(false);
   const [practiceSession, setPracticeSession] = useState<Phrase[]>([]);
   const [sessionStartTime, setSessionStartTime] = useState<number>(Date.now());
-  const [sessionTracked, setSessionTracked] = useState(true); // Don't track initial render if empty
-  const notificationInterval = useRef<any>(null);
+  const [sessionTracked, setSessionTracked] = useState(true);
   
   const [isMiniTest, setIsMiniTest] = useState(false);
   const [isListeningPronunciation, setIsListeningPronunciation] = useState(false);
@@ -31,39 +33,26 @@ export function Practice() {
       } catch (e) {}
     }
   }, [currentIndex]);
-  
-  const [pauseUntil, setPauseUntil] = useState<number | null>(() => {
-    const v = localStorage.getItem('practice_pause_until');
-    return v ? parseInt(v, 10) : null;
-  });
-
-  const generateSession = (length: number = 10) => {
-    if (phrases.length === 0) return [];
-    const now = Date.now();
-    const sorted = [...phrases].sort((a,b) => {
-      const daysSinceA = Math.max(0.1, (now - a.dateAdded) / (1000 * 60 * 60 * 24));
-      const daysSinceB = Math.max(0.1, (now - b.dateAdded) / (1000 * 60 * 60 * 24));
-      
-      const recentBoostA = (a.difficultyScore > 20 && daysSinceA <= 3) ? 60 : 0;
-      const recentBoostB = (b.difficultyScore > 20 && daysSinceB <= 3) ? 60 : 0;
-      
-      const randomA = Math.random() * 30;
-      const randomB = Math.random() * 30;
-      
-      const isMasteredA = a.difficultyScore <= 20 ? -150 : 0;
-      const isMasteredB = b.difficultyScore <= 20 ? -150 : 0;
-
-      const scoreA = a.difficultyScore + recentBoostA + randomA + isMasteredA;
-      const scoreB = b.difficultyScore + recentBoostB + randomB + isMasteredB;
-      
-      return scoreB - scoreA;
-    });
-    return sorted.slice(0, Math.min(length, sorted.length));
-  };
 
   useEffect(() => {
     if (phrases.length > 0 && practiceSession.length === 0) {
-      setPracticeSession(generateSession(10));
+      try {
+        const pendingWords = localStorage.getItem('pending_practice_words');
+        if (pendingWords) {
+          localStorage.removeItem('pending_practice_words');
+          const ids: string[] = JSON.parse(pendingWords);
+          if (Array.isArray(ids) && ids.length > 0) {
+            const matchedPhrases = phrases.filter(p => ids.includes(p.id));
+            if (matchedPhrases.length > 0) {
+              setPracticeSession(matchedPhrases);
+              setSessionStartTime(Date.now());
+              setSessionTracked(false);
+              return;
+            }
+          }
+        }
+      } catch {}
+      setPracticeSession(generateSession(phrases, 10));
       setSessionStartTime(Date.now());
       setSessionTracked(false);
     }
@@ -80,6 +69,7 @@ export function Practice() {
   };
 
   const togglePronunciationTest = () => {
+    if (DEBUG) console.log('togglePronunciationTest', { isListening: isListeningPronunciation, SpeechRecognition: typeof ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) });
     if (isListeningPronunciation) {
       if (recognitionRef.current) recognitionRef.current.stop();
       setIsListeningPronunciation(false);
@@ -88,6 +78,7 @@ export function Practice() {
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
+      if (DEBUG) console.log('SpeechRecognition not available in Practice');
       alert("Speech recognition isn't supported in this browser. Try Chrome.");
       return;
     }
@@ -161,12 +152,6 @@ export function Practice() {
     setCurrentIndex(prev => prev + 1);
   };
 
-  const handlePause = () => {
-      const t = Date.now() + 30 * 60 * 1000;
-      setPauseUntil(t);
-      localStorage.setItem('practice_pause_until', t.toString());
-  };
-
   if (phrases.length === 0) {
     return (
       <div className="p-4 flex flex-col pt-12 items-center justify-center space-y-4 h-full">
@@ -175,8 +160,6 @@ export function Practice() {
       </div>
     );
   }
-
-  const isPaused = pauseUntil && Date.now() < pauseUntil;
 
   if (!currentPhrase) {
      if (!sessionTracked && practiceSession.length > 0) {
@@ -196,7 +179,7 @@ export function Practice() {
             {isMiniTest ? "Great job doing a quick repetition sprint." : "Great job relying on cognitive recall today."}
          </p>
          <button onClick={() => {
-            setPracticeSession(generateSession(10));
+            setPracticeSession(generateSession(phrases, 10));
             setCurrentIndex(0);
             setShowAnswer(false);
             setIsMiniTest(false);
@@ -227,17 +210,7 @@ export function Practice() {
              </div>
            </div>
            
-           {settings.notificationsEnabled && !isPaused && (
-              <button onClick={handlePause} className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors mt-1">
-                 <Clock className="w-3 h-3"/> Pause notifs 30m
-              </button>
-           )}
-           {isPaused && (
-              <span className="text-xs text-yellow-500/70 flex items-center gap-1 font-medium mt-1">
-                 <Clock className="w-3 h-3"/> Paused till {new Date(pauseUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-              </span>
-           )}
-        </div>
+         </div>
       </div>
 
       <div className="flex-1 flex flex-col justify-center max-w-lg mx-auto w-full py-4">

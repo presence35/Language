@@ -1,6 +1,8 @@
 import React from 'react';
 import { useStorage } from '../hooks/useStorage';
-import { Globe, Settings as SettingsIcon, History, Bell, Presentation, Bot, CheckCircle2, Cloud, Wand2, Download, Upload } from 'lucide-react';
+import { Globe, Settings as SettingsIcon, History, Bell, Presentation, Bot, CheckCircle2, Cloud, Wand2, Download, Upload, Sparkles } from 'lucide-react';
+
+const APP_VERSION = '1.0';
 
 export function Settings() {
   const { settings, updateSettings, phrases, importData } = useStorage();
@@ -130,17 +132,14 @@ export function Settings() {
 
         <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-sm space-y-5">
           <div className="flex items-center gap-2 mb-2">
-            <Presentation className="w-5 h-5 text-indigo-400" />
-            <h3 className="text-lg font-bold text-slate-200">Interface & Capturing</h3>
+            <Bell className="w-5 h-5 text-indigo-400" />
+            <h3 className="text-lg font-bold text-slate-200">Notifications</h3>
           </div>
           
           <div className="flex flex-col gap-3">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Bell className="w-4 h-4 text-slate-400" />
-                  <p className="text-slate-200 font-semibold">Enable Notifications</p>
-                </div>
+                <p className="text-slate-200 font-semibold">Enable Notifications</p>
                 <p className="text-sm text-slate-400">Allow reminders for practice mode.</p>
               </div>
               <button
@@ -162,45 +161,71 @@ export function Settings() {
             {settings.notificationsEnabled && (
               <div className="pl-6 pt-2 flex flex-col gap-4 border-t border-slate-800 mt-2">
                 <p className="text-sm text-slate-400">
-                  We'll periodically check for phrases you've learned but might be forgetting (based on difficulty). Click the notification to start a quick review session.
+                  On each schedule interval, you'll get a single notification with a teaser of words to review. Tap it to start a full practice session with those words. Dismiss to skip until the next interval. 10% of sessions include mastered words to keep them fresh.
                 </p>
                 <div className="flex flex-col gap-2">
                   <p className="text-sm text-slate-300 font-medium">Notification Frequency</p>
                   <div className="flex flex-wrap gap-2">
                     <button
-                      onClick={() => updateSettings({ notificationFrequency: 'hourly' })}
+                      onClick={() => updateSettings({ notificationFrequency: '2h' })}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        settings.notificationFrequency === 'hourly'
+                        settings.notificationFrequency === '2h'
                           ? 'bg-indigo-500 text-white'
                           : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                       }`}
                     >
-                      Hourly
+                      Every 2 hours
                     </button>
                     <button
-                      onClick={() => updateSettings({ notificationFrequency: 'few_hours' })}
+                      onClick={() => updateSettings({ notificationFrequency: '6h' })}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        settings.notificationFrequency === 'few_hours'
+                        settings.notificationFrequency === '6h'
                           ? 'bg-indigo-500 text-white'
                           : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                       }`}
                     >
-                      Every Few Hours
+                      Every 6 hours
                     </button>
                     <button
-                      onClick={() => updateSettings({ notificationFrequency: 'daily' })}
+                      onClick={() => updateSettings({ notificationFrequency: '24h' })}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        settings.notificationFrequency === 'daily' || !settings.notificationFrequency
+                        settings.notificationFrequency === '24h'
                           ? 'bg-indigo-500 text-white'
                           : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                       }`}
                     >
-                      Once a Day
+                      Once a day
                     </button>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm text-slate-300 font-medium">Session Size</p>
+                  <p className="text-xs text-slate-500">How many words to include in notification-triggered practice sessions.</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[5, 10, 15, 20].map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => updateSettings({ notificationSessionSize: size })}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          settings.notificationSessionSize === size
+                            ? 'bg-indigo-500 text-white'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-sm space-y-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Presentation className="w-5 h-5 text-indigo-400" />
+            <h3 className="text-lg font-bold text-slate-200">Display</h3>
           </div>
 
           <div className="flex items-start justify-between gap-4">
@@ -250,73 +275,83 @@ export function Settings() {
                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.showRecentPhrases ? 'translate-x-6' : 'translate-x-1'}`} />
              </button>
           </div>
-
-          <div className="pt-4 border-t border-slate-800 space-y-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Wand2 className="w-4 h-4 text-slate-400" />
-                  <p className="text-slate-200 font-semibold">Use AI for Translation</p>
-                </div>
-                <p className="text-sm text-slate-400">Use AI models instead of browser default for better translations.</p>
-              </div>
-              <button
-                onClick={() => updateSettings({ useAiForTranslation: !settings.useAiForTranslation })}
-                className={`relative inline-flex h-6 w-11 mt-1 shrink-0 items-center rounded-full transition-colors focus:outline-none ${settings.useAiForTranslation ? 'bg-indigo-500' : 'bg-slate-600'}`}
-              >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.useAiForTranslation ? 'translate-x-6' : 'translate-x-1'}`} />
-              </button>
-            </div>
-            {settings.useAiForTranslation && (
-              <div className="pl-6">
-                <input
-                  type="password"
-                  placeholder="Enter API Key"
-                  value={settings.translationApiKey || ''}
-                  onChange={(e) => updateSettings({ translationApiKey: e.target.value })}
-                  className="block w-full px-3 py-2 border border-slate-800 rounded-xl bg-slate-950 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
-                />
-              </div>
-            )}
-            
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Cloud className="w-4 h-4 text-slate-400" />
-                  <p className="text-slate-200 font-semibold">Data Management</p>
-                </div>
-                <p className="text-sm text-slate-400">Export or import your learning data as a JSON file.</p>
-              </div>
-              <div className="flex flex-col gap-2 mt-1 shrink-0">
-                <button 
-                  onClick={handleExport}
-                  className="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-colors border border-slate-700 shadow-sm flex items-center justify-center gap-2"
-                >
-                  <Download className="w-3 h-3" />
-                  Export
-                </button>
-                <input 
-                  type="file" 
-                  accept=".json" 
-                  ref={fileInputRef} 
-                  onChange={handleImport} 
-                  className="hidden" 
-                />
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-colors border border-slate-700 shadow-sm flex items-center justify-center gap-2"
-                >
-                  <Upload className="w-3 h-3" />
-                  Import
-                </button>
-              </div>
-            </div>
-          </div>
-
         </div>
 
+        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-sm space-y-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="w-5 h-5 text-indigo-400" />
+            <h3 className="text-lg font-bold text-slate-200">Translation</h3>
+          </div>
+
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Wand2 className="w-4 h-4 text-slate-400" />
+                <p className="text-slate-200 font-semibold">Use AI for Translation</p>
+              </div>
+              <p className="text-sm text-slate-400">Use AI models instead of browser default for better translations.</p>
+            </div>
+            <button
+              onClick={() => updateSettings({ useAiForTranslation: !settings.useAiForTranslation })}
+              className={`relative inline-flex h-6 w-11 mt-1 shrink-0 items-center rounded-full transition-colors focus:outline-none ${settings.useAiForTranslation ? 'bg-indigo-500' : 'bg-slate-600'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.useAiForTranslation ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+          {settings.useAiForTranslation && (
+            <div className="pl-6">
+              <input
+                type="password"
+                placeholder="Enter API Key"
+                value={settings.translationApiKey || ''}
+                onChange={(e) => updateSettings({ translationApiKey: e.target.value })}
+                className="block w-full px-3 py-2 border border-slate-800 rounded-xl bg-slate-950 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-sm space-y-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Cloud className="w-5 h-5 text-indigo-400" />
+            <h3 className="text-lg font-bold text-slate-200">Data</h3>
+          </div>
+
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-slate-200 font-semibold">Data Management</p>
+              <p className="text-sm text-slate-400">Export or import your learning data as a JSON file.</p>
+            </div>
+            <div className="flex flex-col gap-2 mt-1 shrink-0">
+              <button 
+                onClick={handleExport}
+                className="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-colors border border-slate-700 shadow-sm flex items-center justify-center gap-2"
+              >
+                <Download className="w-3 h-3" />
+                Export
+              </button>
+              <input 
+                type="file" 
+                accept=".json" 
+                ref={fileInputRef} 
+                onChange={handleImport} 
+                className="hidden" 
+              />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-colors border border-slate-700 shadow-sm flex items-center justify-center gap-2"
+              >
+                <Upload className="w-3 h-3" />
+                Import
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="text-center pt-4 pb-2">
+        <p className="text-xs text-slate-600">Version {APP_VERSION}</p>
       </div>
     </div>
   );
 }
-
