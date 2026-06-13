@@ -270,10 +270,22 @@ export function Practice() {
                </div>
              </div>
            ) : (
-             <div className="mt-auto pt-4 border-t border-slate-800 animate-in fade-in slide-in-from-top-4 duration-300 flex flex-col justify-center">
-                <p className="text-2xl text-slate-200 font-medium mb-6">{currentPhrase.englishPhrase}</p>
-                
-                <div className="flex gap-4">
+              <div className="mt-auto pt-4 border-t border-slate-800 animate-in fade-in slide-in-from-top-4 duration-300 flex flex-col justify-center">
+                 <p className="text-2xl text-slate-200 font-medium mb-6">{currentPhrase.englishPhrase}</p>
+
+                 {currentPhrase.wordBreakdown.length > 1 && (
+                   <div className="flex flex-wrap justify-center gap-2 mb-6">
+                     {currentPhrase.wordBreakdown.map((wb, i) => (
+                       <div key={i} className="flex items-center gap-2 bg-slate-800/50 border border-slate-700/50 px-3 py-1.5 rounded-full text-sm">
+                         <span className="font-bold text-slate-200">{wb.word}</span>
+                         <span className="text-slate-500">→</span>
+                         <span className="text-slate-400">{wb.translation}</span>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+
+                 <div className="flex gap-4">
                    <button onClick={() => handleResult(false)} className="flex-1 bg-red-950/30 border border-red-500/20 text-red-400 font-bold p-4 rounded-2xl flex flex-col items-center justify-center gap-1 hover:bg-red-950/50 active:scale-95 transition-all">
                       <XCircle className="w-8 h-8 mb-1"/> Didn't Know
                    </button>

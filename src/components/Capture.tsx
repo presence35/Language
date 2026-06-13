@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStorage } from '../hooks/useStorage';
 import { Mic, Loader2, BookmarkPlus, Volume2, PlayCircle, X, Check, Trash2, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { playAudioWithLang, playAudioUrl } from '../utils/audio';
+import { playAudioWithLang } from '../utils/audio';
 import { LANGUAGE_FLAGS } from '../utils/language';
 
 const DEBUG = true;
@@ -15,7 +15,6 @@ interface TranslationResult {
   sourceLanguage: 'en' | 'ru' | 'es';
   targetLanguage: 'en' | 'ru' | 'es';
   wordBreakdown: any[];
-  audioUrl?: string | null;
   timestamp: number;
 }
 
@@ -256,27 +255,7 @@ export function Capture() {
   };
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const latestAudioUrlRef = useRef<string | null>(null);
-  const canceledRef = useRef<boolean>(false);
-  const recordingTimeoutRef = useRef<any>(null);
-  
-  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-  const localRecognitionRef = useRef<any>(null);
-
-  useEffect(() => {
-    return () => {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
-      }
-      if (localRecognitionRef.current) {
-        localRecognitionRef.current.abort();
-      }
-      if (recordingTimeoutRef.current) {
-        clearTimeout(recordingTimeoutRef.current);
-      }
-    };
-  }, []);
+  const audioChunksRef = useRef<BlobPart[]>([]);
 
   const getWordBreakdownLocal = async (russianPhrase: string, sl: string) => {
     const cleanText = russianPhrase.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"«»’"']/g, "");
@@ -298,7 +277,7 @@ export function Capture() {
     }
   };
 
-  const processInput = async (text: string, audioUrlStr?: string | null) => {
+  const processInput = async (text: string) => {
     debugLog(`processInput text="${text}" lang=${speechLanguage} defaultTarget=${settings.defaultTargetLanguage}`);
     setLoading(true);
     try {
@@ -338,7 +317,6 @@ export function Capture() {
         sourceLanguage: sl,
         targetLanguage: tl as 'en' | 'ru' | 'es',
         wordBreakdown: breakdown,
-        audioUrl: audioUrlStr || latestAudioUrlRef.current || null,
         timestamp: Date.now()
       };
 
@@ -364,131 +342,154 @@ export function Capture() {
   };
 
   const handleAnimalClick = async (animal: Animal) => {
-    debugLog(`handleAnimalClick animal=${animal.id} recording=${recording} SpeechRecognition=${typeof SpeechRecognition}`);
-    if (recording) {
-      debugLog('Already recording — stopping current session');
-      if (localRecognitionRef.current) {
-        try { localRecognitionRef.current.stop(); } catch (e) {}
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
-      }
-      if (recordingTimeoutRef.current) clearTimeout(recordingTimeoutRef.current);
+    const isCurrentlyRecording = mediaRecorderRef.current?.state === 'recording';
+    debugLog(`handleAnimalClick animal=${animal.id} recording=${isCurrentlyRecording}`);
+
+    if (isCurrentlyRecording) {
+      debugLog('User stopped recording — finalizing');
+      mediaRecorderRef.current?.stop();
       return;
     }
 
     setActiveAnimal(animal);
     setRecording(true);
-    canceledRef.current = false;
-    latestAudioUrlRef.current = null;
 
-    if (!SpeechRecognition) {
-       setRecording(false);
-       setActiveAnimal(null);
-       debugLog("SpeechRecognition API not found");
-       alert("Native speech recognition is not supported in this browser. Please try using Chrome for voice support.");
-       return;
-    }
-
-    // Default flow: Use Web Speech API with MediaRecorder running concurrently
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.lang = speechLanguage === 'en' ? 'en-US' : speechLanguage === 'es' ? 'es-ES' : speechLanguage === 'fr' ? 'fr-FR' : speechLanguage === 'de' ? 'de-DE' : 'ru-RU';
-      debugLog(`recognition.lang set to "${recognition.lang}"`);
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-
-      let resultFired = false;
-      recognition.onaudiostart = () => debugLog('Audio started (mic receiving)');
-      recognition.onaudioend = () => debugLog('Audio ended (mic stopped)');
-      recognition.onresult = async (event: any) => {
-        resultFired = true;
-        const transcript = event.results[0][0].transcript;
-        debugLog(`Speech recognized: "${transcript}"`);
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-            mediaRecorderRef.current.stop();
-        }
-        if (transcript) {
-           await processInput(transcript);
-        } else {
-           debugLog('Empty transcript received');
-           setLoading(false);
-           setActiveAnimal(null);
-        }
-      };
-
-      recognition.onerror = (err: any) => {
-        debugLog(`SpeechRecognition error: ${err.error} ${err.message || ''}`);
-        setRecording(false);
-        setLoading(false);
-        setActiveAnimal(null);
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
-      };
-
-      recognition.onend = () => {
-        setRecording(false);
-        if (!resultFired) {
-           debugLog('Recognition ended with NO result (no speech detected or timeout)');
-           setLoading(false);
-           setActiveAnimal(null);
-        }
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
-      };
-
-      localRecognitionRef.current = recognition;
-      recognition.start();
-    } catch (err: any) {
-      debugLog(`SpeechRecognition constructor/start threw: ${err.name}: ${err.message || err}`);
+    if (!navigator.mediaDevices?.getUserMedia) {
       setRecording(false);
       setActiveAnimal(null);
+      debugLog("MediaRecorder API not available — recording not supported");
       return;
     }
 
-    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-      if (canceledRef.current) {
-        stream.getTracks().forEach(track => track.stop());
-        return;
-      }
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
         }
       };
 
-      mediaRecorder.onstop = () => {
-        stream.getTracks().forEach((track) => track.stop());
-        if (canceledRef.current) return;
-        if (audioChunksRef.current.length > 0) {
-          let mimeType = 'audio/webm';
-          if (MediaRecorder.isTypeSupported('audio/webm')) {
-            mimeType = 'audio/webm';
-          } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-            mimeType = 'audio/mp4';
-          } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
-            mimeType = 'audio/ogg';
-          } else {
-            mimeType = 'audio/wav';
-          }
-          const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-          const url = URL.createObjectURL(audioBlob);
-          latestAudioUrlRef.current = url;
-          // Immediately associate the audio on top of history (either existing or to be appended)
-          setResultsHistory(prev => {
-            if (prev.length === 0) return prev;
-            const newArr = [...prev];
-            newArr[0] = { ...newArr[0], audioUrl: url };
-            return newArr;
-          });
+      recorder.onstop = () => {
+        stream.getTracks().forEach(track => track.stop());
+        mediaRecorderRef.current = null;
+
+        if (audioChunksRef.current.length === 0) {
+          debugLog('No audio captured');
+          setRecording(false);
+          setActiveAnimal(null);
+          return;
         }
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setLoading(true);
+        setRecording(false);
+
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const base64data = (reader.result as string).split(',')[1];
+
+          const sl = speechLanguage;
+          const tl = sl === 'en' ? settings.defaultTargetLanguage : 'en';
+
+          debugLog(`Sending audio to /api/translate sl=${sl} tl=${tl}`);
+
+          try {
+            const response = await fetch('/api/translate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                audioBase64: base64data,
+                mimeType: audioBlob.type,
+                lang: sl,
+                targetLang: tl,
+              })
+            });
+
+            if (!response.ok) {
+              let errorMsg = 'Translation failed';
+              try {
+                const errData = await response.json();
+                errorMsg = errData.error || errorMsg;
+              } catch {
+                errorMsg = `Server error (${response.status})`;
+              }
+              throw new Error(errorMsg);
+            }
+
+            const data = await response.json();
+            debugLog(`Translation response: transcription="${data.transcription}" translation="${data.translation}"`);
+
+            const text = data.transcription || "";
+            const translation = data.translation || "";
+
+            const ruPhrase = sl === 'en' ? translation : text;
+            const enPhrase = sl === 'en' ? text : translation;
+
+            debugLog(`Getting word breakdown for: "${ruPhrase}"`);
+            let breakdown: any[] = [];
+            try {
+              breakdown = await getWordBreakdownLocal(ruPhrase, sl === 'en' ? tl : sl);
+            } catch (e) {
+              debugLog('Word breakdown failed, continuing');
+            }
+
+            const newResult: TranslationResult = {
+              id: Date.now().toString(),
+              transcription: text,
+              russianPhrase: ruPhrase,
+              englishPhrase: enPhrase,
+              sourceLanguage: sl as 'en' | 'ru' | 'es',
+              targetLanguage: tl as 'en' | 'ru' | 'es',
+              wordBreakdown: breakdown,
+              timestamp: Date.now()
+            };
+
+            setResultsHistory(prev => {
+              const valid = prev.filter(r => Date.now() - r.timestamp < 42 * 60 * 1000);
+              return [newResult, ...valid].slice(0, 5);
+            });
+            setHistoryIndex(0);
+            setIsHistoryVisible(true);
+
+            debugLog(`Playing TTS… "${ruPhrase}" (${sl})`);
+            try {
+              await playAudioWithLang(ruPhrase, sl);
+            } catch (e) {
+              debugLog('TTS playback failed');
+            }
+            debugLog('Done');
+          } catch (err: any) {
+            console.error(err);
+            debugLog(`Error: ${err.message || err}`);
+          } finally {
+            setLoading(false);
+            setActiveAnimal(null);
+          }
+        };
       };
-      mediaRecorder.start(200);
-    }).catch((err: any) => {
-      debugLog(`getUserMedia failed: ${err.name}: ${err.message || err}`);
-    });
+
+      recorder.onerror = (event: any) => {
+        debugLog(`MediaRecorder error: ${event.error?.name || 'unknown'}`);
+        setRecording(false);
+        setLoading(false);
+        setActiveAnimal(null);
+        mediaRecorderRef.current = null;
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      debugLog('MediaRecorder started');
+    } catch (err: any) {
+      debugLog(`getUserMedia/MediaRecorder error: ${err.name}: ${err.message || err}`);
+      setRecording(false);
+      setActiveAnimal(null);
+    }
   };
 
   const playAudio = async (text: string, lang: string = 'ru') => {
@@ -575,7 +576,7 @@ export function Capture() {
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
       {DEBUG && debugLogs.length > 0 && (
-        <div className="bg-slate-900/90 border border-slate-700 rounded-xl p-2 text-xs font-mono text-yellow-300 max-h-28 overflow-y-auto space-y-0.5">
+        <div className="bg-slate-900/90 border border-slate-700 rounded-xl p-2 text-xs font-mono text-yellow-300 max-h-28 overflow-y-auto space-y-0.5 select-text">
           {debugLogs.map((l, i) => <div key={i}>{l}</div>)}
         </div>
       )}
@@ -644,34 +645,22 @@ export function Capture() {
                   className={`w-full shrink-0 snap-center bg-slate-900 border text-left p-4 sm:p-6 rounded-3xl shadow-lg space-y-5 relative select-none ${isHistorical ? 'border-slate-800/80 bg-slate-900/95' : 'border-indigo-500/40'}`}
                 >
                   <div className={`p-4 mt-0 sm:p-5 rounded-2xl border flex flex-col gap-4 relative transition-colors pointer-events-none ${isHistorical ? 'bg-slate-800/30 border-slate-700/40' : 'bg-indigo-900/30 border-indigo-500/30'}`}>
-                    <div className="flex flex-col gap-1 pr-8 relative">
+                    <div 
+                      onClick={() => {
+                        const utterance = new SpeechSynthesisUtterance(res.transcription);
+                        if (res.sourceLanguage === 'ru') utterance.lang = 'ru-RU';
+                        else if (res.sourceLanguage === 'es') utterance.lang = 'es-ES';
+                        else if (res.sourceLanguage === 'fr') utterance.lang = 'fr-FR';
+                        else if (res.sourceLanguage === 'de') utterance.lang = 'de-DE';
+                        else utterance.lang = 'en-US';
+                        window.speechSynthesis.speak(utterance);
+                      }}
+                      className="flex flex-col gap-1 pr-8 relative cursor-pointer pointer-events-auto"
+                    >
                       <div className={`flex items-center gap-2 font-extrabold text-xs uppercase tracking-wider mb-1 ${isHistorical ? 'text-slate-500' : 'text-indigo-400'}`}>
                         <img src={LANGUAGE_FLAGS[res.sourceLanguage]} alt={res.sourceLanguage} className="w-3.5 h-3.5 object-cover rounded shadow-sm opacity-80" />
                         <span>What you said</span>
-                        {res.audioUrl ? (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); playAudioUrl(res.audioUrl!); }}
-                            className={`transition-colors flex items-center justify-center p-1 rounded w-6 h-6 shrink-0 cursor-pointer pointer-events-auto ${isHistorical ? 'text-slate-400 hover:text-slate-300 bg-slate-800/80' : 'text-indigo-400 hover:text-indigo-300 bg-indigo-900/40'}`}
-                          >
-                            <PlayCircle className="w-4 h-4" />
-                          </button>
-                        ) : (
-                          <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                const utterance = new SpeechSynthesisUtterance(res.transcription);
-                                if (res.sourceLanguage === 'ru') utterance.lang = 'ru-RU';
-                                else if (res.sourceLanguage === 'es') utterance.lang = 'es-ES';
-                                else if (res.sourceLanguage === 'fr') utterance.lang = 'fr-FR';
-                                else if (res.sourceLanguage === 'de') utterance.lang = 'de-DE';
-                                else utterance.lang = 'en-US';
-                                window.speechSynthesis.speak(utterance);
-                            }}
-                            className={`transition-colors flex items-center justify-center p-1 rounded w-6 h-6 shrink-0 cursor-pointer pointer-events-auto ${isHistorical ? 'text-slate-400 hover:text-slate-300 bg-slate-800/80' : 'text-indigo-400 hover:text-indigo-300 bg-indigo-900/40'}`}
-                          >
-                            <Volume2 className="w-4 h-4" />
-                          </button>
-                        )}
+                        <Volume2 className="w-4 h-4 shrink-0 opacity-80" />
                       </div>
                       
                       {res.sourceLanguage === 'ru' ? (
@@ -682,37 +671,33 @@ export function Capture() {
                     </div>
 
                     {res.sourceLanguage === 'ru' ? (
-                      <div className={`pt-4 border-t ${isHistorical ? 'border-slate-700/50' : 'border-indigo-500/20'} pointer-events-auto`}>
-                         <div className="flex items-center gap-2 font-extrabold text-[10px] uppercase tracking-wider mb-2 text-slate-500">
-                           <img src={LANGUAGE_FLAGS['en']} alt="en" className="w-3.5 h-3.5 object-cover rounded shadow-sm opacity-80" />
-                           <span>Translation</span>
-                         </div>
-                         <div className="flex items-center justify-start gap-4">
-                           <button 
-                             onClick={(e) => { e.stopPropagation(); playAudio(res.englishPhrase, 'en') }} 
-                             disabled={playingAudio} 
-                             className={`p-3 rounded-full shrink-0 transition-colors shadow-sm cursor-pointer ${isHistorical ? 'text-slate-400 bg-slate-800/80 hover:bg-slate-700' : 'text-indigo-400 bg-indigo-900/50 hover:bg-indigo-800'}`}
-                           >
-                             <Volume2 className={`w-6 h-6 ${!isHistorical ? 'animate-pulse' : ''}`} />
-                           </button>
-                           <p className={`text-xl sm:text-2xl font-bold leading-tight ${isHistorical ? 'text-slate-300' : 'text-slate-100'}`}>{res.englishPhrase}</p>
-                         </div>
+                      <div 
+                        onClick={() => { if (!playingAudio) playAudio(res.englishPhrase, 'en'); }}
+                        className={`pt-4 border-t cursor-pointer ${isHistorical ? 'border-slate-700/50' : 'border-indigo-500/20'} pointer-events-auto`}
+                      >
+                          <div className="flex items-center gap-2 font-extrabold text-[10px] uppercase tracking-wider mb-2 text-slate-500">
+                            <img src={LANGUAGE_FLAGS['en']} alt="en" className="w-3.5 h-3.5 object-cover rounded shadow-sm opacity-80" />
+                            <span>Translation</span>
+                            <Volume2 className="w-4 h-4 shrink-0 opacity-80" />
+                          </div>
+                          <div className="flex items-center justify-start gap-3">
+                            <p className={`text-xl sm:text-2xl font-bold leading-tight flex-1 ${isHistorical ? 'text-slate-300' : 'text-slate-100'}`}>{res.englishPhrase}</p>
+                            <Volume2 className={`w-4 h-4 shrink-0 ${isHistorical ? 'text-slate-500' : 'text-indigo-400/70'}`} />
+                          </div>
                       </div>
                     ) : (
-                      <div className={`pt-4 border-t ${isHistorical ? 'border-slate-700/50' : 'border-indigo-500/20'} pointer-events-auto`}>
-                         <div className="flex items-center gap-2 font-extrabold text-[10px] uppercase tracking-wider mb-2 text-slate-500">
-                           <img src={LANGUAGE_FLAGS[res.targetLanguage]} alt={res.targetLanguage} className="w-3.5 h-3.5 object-cover rounded shadow-sm opacity-80" />
-                           <span>Translation</span>
-                         </div>
-                         <div className="flex justify-start items-center gap-4">
-                           <button 
-                             onClick={(e) => { e.stopPropagation(); playAudio(res.russianPhrase, res.targetLanguage) }} 
-                             disabled={playingAudio} 
-                             className={`p-3 rounded-full shrink-0 transition-colors shadow-sm cursor-pointer ${isHistorical ? 'text-slate-400 bg-slate-800/80 hover:bg-slate-700' : 'text-indigo-400 bg-indigo-900/50 hover:bg-indigo-800'}`}
-                           >
-                             <Volume2 className={`w-6 h-6 ${!isHistorical ? 'animate-pulse' : ''}`} />
-                           </button>
-                           <p className={`text-2xl sm:text-3xl font-black leading-tight ${isHistorical ? 'text-slate-300' : 'text-slate-100'}`}>{res.russianPhrase}</p>
+                      <div 
+                        onClick={() => { if (!playingAudio) playAudio(res.russianPhrase, res.targetLanguage); }}
+                        className={`pt-4 border-t cursor-pointer ${isHistorical ? 'border-slate-700/50' : 'border-indigo-500/20'} pointer-events-auto`}
+                      >
+                          <div className="flex items-center gap-2 font-extrabold text-[10px] uppercase tracking-wider mb-2 text-slate-500">
+                            <img src={LANGUAGE_FLAGS[res.targetLanguage]} alt={res.targetLanguage} className="w-3.5 h-3.5 object-cover rounded shadow-sm opacity-80" />
+                            <span>Translation</span>
+                            <Volume2 className="w-4 h-4 shrink-0 opacity-80" />
+                          </div>
+                         <div className="flex justify-start items-center gap-3">
+                           <p className={`text-2xl sm:text-3xl font-black leading-tight flex-1 ${isHistorical ? 'text-slate-300' : 'text-slate-100'}`}>{res.russianPhrase}</p>
+                           <Volume2 className={`w-4 h-4 shrink-0 ${isHistorical ? 'text-slate-500' : 'text-indigo-400/70'}`} />
                          </div>
                       </div>
                     )}

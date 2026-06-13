@@ -27,7 +27,7 @@ self.addEventListener('message', (event) => {
     event.waitUntil(
       self.registration.showNotification(event.data.title || '', {
         body: event.data.body || '',
-        icon: event.data.icon || '/icon.svg',
+        icon: event.data.icon || (self.registration.scope + 'icon.svg'),
       })
     );
   }
@@ -48,7 +48,7 @@ self.addEventListener('notificationclick', (event) => {
         client.focus();
         client.postMessage({ type: 'navigate-practice', wordIds });
       } else if (self.clients.openWindow) {
-        self.clients.openWindow('/');
+        self.clients.openWindow(self.registration.scope);
       }
     })
   );
@@ -105,6 +105,6 @@ async function handlePeriodicCheck() {
 
   self.registration.showNotification(title, {
     body,
-    icon: '/icon.svg',
+    icon: self.registration.scope + 'icon.svg',
   });
 }

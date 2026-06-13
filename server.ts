@@ -68,6 +68,41 @@ async function startServer() {
   });
 
 
+  // Combined STT + translation via Gemini
+  app.post('/api/translate', async (req, res) => {
+    try {
+      const { audioBase64, mimeType, lang, targetLang } = req.body;
+      if (!audioBase64) return res.status(400).json({ error: 'No audio provided' });
+      if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: 'GEMINI_API_KEY not configured on server' });
+
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const sourceLabel = lang === 'en' ? 'English' : lang === 'es' ? 'Spanish' : lang === 'fr' ? 'French' : lang === 'de' ? 'German' : 'Russian';
+      const targetLabel = targetLang === 'en' ? 'English' : targetLang === 'es' ? 'Spanish' : targetLang === 'fr' ? 'French' : targetLang === 'de' ? 'German' : 'Russian';
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { inlineData: { data: audioBase64, mimeType: mimeType || 'audio/webm' } },
+              { text: `Transcribe this audio precisely in ${sourceLabel}. Then translate it to ${targetLabel}. Respond ONLY with valid JSON like: {"transcription":"...","translation":"...","detectedLanguage":"${lang}"}` }
+            ]
+          }
+        ]
+      });
+
+      const raw = response.text?.trim() || "";
+      // Extract JSON from the response (Gemini sometimes wraps in markdown)
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      const data = jsonMatch ? JSON.parse(jsonMatch[0]) : { transcription: raw, translation: "", detectedLanguage: lang };
+      res.json(data);
+    } catch (error) {
+      console.error('Error in /api/translate:', error);
+      res.status(500).json({ error: 'Translation failed' });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
