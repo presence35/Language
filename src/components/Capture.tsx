@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { playAudioWithLang } from '../utils/audio';
 import { LANGUAGE_FLAGS } from '../utils/language';
 
-const DEBUG = true;
+const DEBUG = false;
 
 interface TranslationResult {
   id: string;
@@ -16,6 +16,8 @@ interface TranslationResult {
   targetLanguage: 'en' | 'ru' | 'es';
   wordBreakdown: any[];
   timestamp: number;
+  originalAudioBase64?: string;
+  originalAudioMimeType?: string;
 }
 
 interface Animal {
@@ -201,7 +203,10 @@ export function Capture() {
   const [resultsHistory, setResultsHistory] = useState<TranslationResult[]>(() => {
     try {
       const stored = localStorage.getItem('resultsHistory');
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch(e) {}
     return [];
   });
@@ -341,13 +346,136 @@ export function Capture() {
     }
   };
 
+  const speechRecoRef = useRef<any>(null);
+
+  const processVoiceInput = async (text: string, audioBase64?: string, audioMimeType?: string) => {
+    setLoading(true);
+    setRecording(false);
+    try {
+      const sl = speechLanguage;
+      const tl = sl === 'en' ? settings.defaultTargetLanguage : 'en';
+
+      debugLog(`Translating sl=${sl} tl=${tl} text="${text}"`);
+
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(text)}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Translation failed");
+      const json = await response.json();
+      const translation = json[0].map((item: any) => item[0]).join('').trim();
+
+      const ruPhrase = sl === 'en' ? translation : text;
+      const enPhrase = sl === 'en' ? text : translation;
+
+      debugLog(`Getting word breakdown for: "${ruPhrase}"`);
+      let breakdown: any[] = [];
+      try {
+        breakdown = await getWordBreakdownLocal(ruPhrase, sl === 'en' ? tl : sl);
+      } catch (e) {}
+
+      const newResult: TranslationResult = {
+        id: Date.now().toString(),
+        transcription: text,
+        russianPhrase: ruPhrase,
+        englishPhrase: enPhrase,
+        sourceLanguage: sl as 'en' | 'ru' | 'es',
+        targetLanguage: tl as 'en' | 'ru' | 'es',
+        wordBreakdown: breakdown,
+        timestamp: Date.now(),
+        originalAudioBase64: audioBase64,
+        originalAudioMimeType: audioMimeType,
+      };
+
+      setResultsHistory(prev => {
+        const valid = prev.filter(r => Date.now() - r.timestamp < 42 * 60 * 1000);
+        return [newResult, ...valid].slice(0, 5);
+      });
+      setHistoryIndex(0);
+      setIsHistoryVisible(true);
+
+      debugLog(`Playing TTS… "${ruPhrase}" (${sl})`);
+      try {
+        await playAudioWithLang(ruPhrase, sl === 'en' ? tl : sl);
+      } catch (e) {}
+      debugLog('Done');
+    } catch (err: any) {
+      console.error(err);
+      debugLog(`Error: ${err.message || err}`);
+      alert(`Oops! Voice translation hit a snag: ${err.message || 'unknown error'}`);
+    } finally {
+      setLoading(false);
+      setActiveAnimal(null);
+    }
+  };
+
   const handleAnimalClick = async (animal: Animal) => {
+    const isAndroid = /android/i.test(navigator.userAgent);
+
+    // ─── Android path: SpeechRecognition only (no MediaRecorder) ───
+    if (isAndroid) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Your browser doesn't support speech recognition. Please use Chrome.");
+        return;
+      }
+
+      if (speechRecoRef.current) {
+        speechRecoRef.current.stop();
+        speechRecoRef.current = null;
+        return;
+      }
+
+      setActiveAnimal(animal);
+      setRecording(true);
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = speechLanguage === 'en' ? 'en-US' : speechLanguage === 'ru' ? 'ru-RU' : speechLanguage === 'es' ? 'es-ES' : speechLanguage === 'fr' ? 'fr-FR' : speechLanguage === 'de' ? 'de-DE' : speechLanguage;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      let resultReceived = false;
+
+      recognition.onresult = (event: any) => {
+        resultReceived = true;
+        const transcript = event.results[0][0].transcript;
+        debugLog(`Speech recognition result: ${transcript}`);
+        speechRecoRef.current = null;
+        processVoiceInput(transcript);
+      };
+
+      recognition.onerror = (e: any) => {
+        debugLog(`Speech recognition error: ${e.error}`);
+        setRecording(false);
+        setActiveAnimal(null);
+        speechRecoRef.current = null;
+      };
+
+      recognition.onend = () => {
+        debugLog('Speech recognition ended');
+        setRecording(false);
+        speechRecoRef.current = null;
+        if (!resultReceived) {
+          const manual = prompt("Speech wasn't recognized. Type what you said (or Cancel to discard):");
+          if (manual && manual.trim()) {
+            processVoiceInput(manual.trim());
+          } else {
+            setActiveAnimal(null);
+          }
+        }
+      };
+
+      speechRecoRef.current = recognition;
+      recognition.start();
+      return;
+    }
+
+    // ─── Desktop path: MediaRecorder + SpeechRecognition ───
     const isCurrentlyRecording = mediaRecorderRef.current?.state === 'recording';
     debugLog(`handleAnimalClick animal=${animal.id} recording=${isCurrentlyRecording}`);
 
     if (isCurrentlyRecording) {
       debugLog('User stopped recording — finalizing');
       mediaRecorderRef.current?.stop();
+      if (speechRecoRef.current) speechRecoRef.current.stop();
       return;
     }
 
@@ -368,6 +496,29 @@ export function Capture() {
       const recorder = new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
 
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+         alert("Your browser doesn't support free speech recognition. Please use Chrome for this feature.");
+         setRecording(false);
+         setActiveAnimal(null);
+         stream.getTracks().forEach(track => track.stop());
+         return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = speechLanguage === 'en' ? 'en-US' : speechLanguage === 'ru' ? 'ru-RU' : speechLanguage === 'es' ? 'es-ES' : speechLanguage === 'fr' ? 'fr-FR' : speechLanguage === 'de' ? 'de-DE' : speechLanguage;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      let finalTranscript = '';
+
+      recognition.onresult = (event: any) => {
+        finalTranscript = event.results[0][0].transcript;
+        debugLog(`Speech recognition final: ${finalTranscript}`);
+      };
+
+      speechRecoRef.current = recognition;
+
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
@@ -376,7 +527,9 @@ export function Capture() {
 
       recorder.onstop = () => {
         stream.getTracks().forEach(track => track.stop());
+        const actualMimeType = recorder.mimeType || 'audio/webm';
         mediaRecorderRef.current = null;
+        speechRecoRef.current = null;
 
         if (audioChunksRef.current.length === 0) {
           debugLog('No audio captured');
@@ -385,92 +538,24 @@ export function Capture() {
           return;
         }
 
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        setLoading(true);
-        setRecording(false);
-
+        const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
-        reader.onloadend = async () => {
+        reader.onloadend = () => {
           const base64data = (reader.result as string).split(',')[1];
 
-          const sl = speechLanguage;
-          const tl = sl === 'en' ? settings.defaultTargetLanguage : 'en';
-
-          debugLog(`Sending audio to /api/translate sl=${sl} tl=${tl}`);
-
-          try {
-            const response = await fetch('/api/translate', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                audioBase64: base64data,
-                mimeType: audioBlob.type,
-                lang: sl,
-                targetLang: tl,
-              })
-            });
-
-            if (!response.ok) {
-              let errorMsg = 'Translation failed';
-              try {
-                const errData = await response.json();
-                errorMsg = errData.error || errorMsg;
-              } catch {
-                errorMsg = `Server error (${response.status})`;
+          if (!finalTranscript || finalTranscript.trim() === '') {
+              debugLog('No speech text recognized');
+              const manual = prompt("Speech wasn't recognized. Type what you said (or Cancel to discard):");
+              if (!manual || manual.trim() === '') {
+                  setLoading(false);
+                  setActiveAnimal(null);
+                  return;
               }
-              throw new Error(errorMsg);
-            }
-
-            const data = await response.json();
-            debugLog(`Translation response: transcription="${data.transcription}" translation="${data.translation}"`);
-
-            const text = data.transcription || "";
-            const translation = data.translation || "";
-
-            const ruPhrase = sl === 'en' ? translation : text;
-            const enPhrase = sl === 'en' ? text : translation;
-
-            debugLog(`Getting word breakdown for: "${ruPhrase}"`);
-            let breakdown: any[] = [];
-            try {
-              breakdown = await getWordBreakdownLocal(ruPhrase, sl === 'en' ? tl : sl);
-            } catch (e) {
-              debugLog('Word breakdown failed, continuing');
-            }
-
-            const newResult: TranslationResult = {
-              id: Date.now().toString(),
-              transcription: text,
-              russianPhrase: ruPhrase,
-              englishPhrase: enPhrase,
-              sourceLanguage: sl as 'en' | 'ru' | 'es',
-              targetLanguage: tl as 'en' | 'ru' | 'es',
-              wordBreakdown: breakdown,
-              timestamp: Date.now()
-            };
-
-            setResultsHistory(prev => {
-              const valid = prev.filter(r => Date.now() - r.timestamp < 42 * 60 * 1000);
-              return [newResult, ...valid].slice(0, 5);
-            });
-            setHistoryIndex(0);
-            setIsHistoryVisible(true);
-
-            debugLog(`Playing TTS… "${ruPhrase}" (${sl})`);
-            try {
-              await playAudioWithLang(ruPhrase, sl);
-            } catch (e) {
-              debugLog('TTS playback failed');
-            }
-            debugLog('Done');
-          } catch (err: any) {
-            console.error(err);
-            debugLog(`Error: ${err.message || err}`);
-          } finally {
-            setLoading(false);
-            setActiveAnimal(null);
+              finalTranscript = manual.trim();
           }
+
+          processVoiceInput(finalTranscript, base64data, actualMimeType);
         };
       };
 
@@ -480,11 +565,27 @@ export function Capture() {
         setLoading(false);
         setActiveAnimal(null);
         mediaRecorderRef.current = null;
+        if (speechRecoRef.current) speechRecoRef.current.stop();
         stream.getTracks().forEach(track => track.stop());
       };
 
+      recognition.onerror = (e: any) => {
+          debugLog(`Speech recognition error: ${e.error}`);
+          if (mediaRecorderRef.current?.state === 'recording') {
+              mediaRecorderRef.current.stop();
+          }
+      };
+
+      recognition.onend = () => {
+          debugLog('Speech recognition ended automatically');
+          if (finalTranscript && mediaRecorderRef.current?.state === 'recording') {
+              mediaRecorderRef.current.stop();
+          }
+      };
+
+      recognition.start();
       recorder.start();
-      debugLog('MediaRecorder started');
+      debugLog('MediaRecorder and SpeechRecognition started');
     } catch (err: any) {
       debugLog(`getUserMedia/MediaRecorder error: ${err.name}: ${err.message || err}`);
       setRecording(false);
@@ -575,11 +676,6 @@ export function Capture() {
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
-      {DEBUG && debugLogs.length > 0 && (
-        <div className="bg-slate-900/90 border border-slate-700 rounded-xl p-2 text-xs font-mono text-yellow-300 max-h-28 overflow-y-auto space-y-0.5 select-text">
-          {debugLogs.map((l, i) => <div key={i}>{l}</div>)}
-        </div>
-      )}
       <div className="flex w-full justify-between items-center gap-1 sm:gap-2 pb-2">
         {settings.showAnimals ? ANIMALS.map((animal) => {
           const isActive = activeAnimal?.id === animal.id;
@@ -647,13 +743,18 @@ export function Capture() {
                   <div className={`p-4 mt-0 sm:p-5 rounded-2xl border flex flex-col gap-4 relative transition-colors pointer-events-none ${isHistorical ? 'bg-slate-800/30 border-slate-700/40' : 'bg-indigo-900/30 border-indigo-500/30'}`}>
                     <div 
                       onClick={() => {
-                        const utterance = new SpeechSynthesisUtterance(res.transcription);
-                        if (res.sourceLanguage === 'ru') utterance.lang = 'ru-RU';
-                        else if (res.sourceLanguage === 'es') utterance.lang = 'es-ES';
-                        else if (res.sourceLanguage === 'fr') utterance.lang = 'fr-FR';
-                        else if (res.sourceLanguage === 'de') utterance.lang = 'de-DE';
-                        else utterance.lang = 'en-US';
-                        window.speechSynthesis.speak(utterance);
+                        if (res.originalAudioBase64) {
+                          const audio = new Audio(`data:${(res.originalAudioMimeType || 'audio/webm').split(';')[0]};base64,${res.originalAudioBase64}`);
+                          audio.play();
+                        } else {
+                          const utterance = new SpeechSynthesisUtterance(res.transcription);
+                          if (res.sourceLanguage === 'ru') utterance.lang = 'ru-RU';
+                          else if (res.sourceLanguage === 'es') utterance.lang = 'es-ES';
+                          else if (res.sourceLanguage === 'fr') utterance.lang = 'fr-FR';
+                          else if (res.sourceLanguage === 'de') utterance.lang = 'de-DE';
+                          else utterance.lang = 'en-US';
+                          window.speechSynthesis.speak(utterance);
+                        }
                       }}
                       className="flex flex-col gap-1 pr-8 relative cursor-pointer pointer-events-auto"
                     >
@@ -675,14 +776,13 @@ export function Capture() {
                         onClick={() => { if (!playingAudio) playAudio(res.englishPhrase, 'en'); }}
                         className={`pt-4 border-t cursor-pointer ${isHistorical ? 'border-slate-700/50' : 'border-indigo-500/20'} pointer-events-auto`}
                       >
-                          <div className="flex items-center gap-2 font-extrabold text-[10px] uppercase tracking-wider mb-2 text-slate-500">
+                          <div className={`flex items-center gap-2 font-extrabold text-xs uppercase tracking-wider mb-1 ${isHistorical ? 'text-slate-500' : 'text-indigo-400'}`}>
                             <img src={LANGUAGE_FLAGS['en']} alt="en" className="w-3.5 h-3.5 object-cover rounded shadow-sm opacity-80" />
                             <span>Translation</span>
                             <Volume2 className="w-4 h-4 shrink-0 opacity-80" />
                           </div>
                           <div className="flex items-center justify-start gap-3">
                             <p className={`text-xl sm:text-2xl font-bold leading-tight flex-1 ${isHistorical ? 'text-slate-300' : 'text-slate-100'}`}>{res.englishPhrase}</p>
-                            <Volume2 className={`w-4 h-4 shrink-0 ${isHistorical ? 'text-slate-500' : 'text-indigo-400/70'}`} />
                           </div>
                       </div>
                     ) : (
@@ -690,15 +790,14 @@ export function Capture() {
                         onClick={() => { if (!playingAudio) playAudio(res.russianPhrase, res.targetLanguage); }}
                         className={`pt-4 border-t cursor-pointer ${isHistorical ? 'border-slate-700/50' : 'border-indigo-500/20'} pointer-events-auto`}
                       >
-                          <div className="flex items-center gap-2 font-extrabold text-[10px] uppercase tracking-wider mb-2 text-slate-500">
+                          <div className={`flex items-center gap-2 font-extrabold text-xs uppercase tracking-wider mb-1 ${isHistorical ? 'text-slate-500' : 'text-indigo-400'}`}>
                             <img src={LANGUAGE_FLAGS[res.targetLanguage]} alt={res.targetLanguage} className="w-3.5 h-3.5 object-cover rounded shadow-sm opacity-80" />
                             <span>Translation</span>
                             <Volume2 className="w-4 h-4 shrink-0 opacity-80" />
                           </div>
                          <div className="flex justify-start items-center gap-3">
-                           <p className={`text-2xl sm:text-3xl font-black leading-tight flex-1 ${isHistorical ? 'text-slate-300' : 'text-slate-100'}`}>{res.russianPhrase}</p>
-                           <Volume2 className={`w-4 h-4 shrink-0 ${isHistorical ? 'text-slate-500' : 'text-indigo-400/70'}`} />
-                         </div>
+                            <p className={`text-2xl sm:text-3xl font-black leading-tight flex-1 ${isHistorical ? 'text-slate-300' : 'text-slate-100'}`}>{res.russianPhrase}</p>
+                          </div>
                       </div>
                     )}
                   </div>

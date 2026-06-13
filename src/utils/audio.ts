@@ -60,43 +60,40 @@ export const playAudioWithLang = async (text: string, lang: string = 'ru', slow:
   const myPlaybackId = currentPlaybackId;
 
   try {
-    const res = await fetch('/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, slow, lang }),
-    });
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${lang}&q=${encodeURIComponent(text)}`;
 
-    if (myPlaybackId !== currentPlaybackId) return;
+    return new Promise((resolve) => {
+      const audio = new Audio(url);
+      activeAudios.add(audio);
+      if (slow) audio.playbackRate = 0.6;
 
-    if (res.ok) {
-      const data = await res.json();
-      if (myPlaybackId !== currentPlaybackId) return;
+      audio.onended = () => {
+        activeAudios.delete(audio);
+        resolve();
+      };
 
-      if (data.audio && data.mimeType) {
-        return new Promise((resolve) => {
-          const audio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
-          activeAudios.add(audio);
-          if (slow) audio.playbackRate = 0.6;
-          audio.onended = () => { activeAudios.delete(audio); resolve(); };
-          audio.onerror = () => {
-            activeAudios.delete(audio);
-            if (myPlaybackId === currentPlaybackId) fallbackWebSpeech(text, lang, slow).then(resolve);
-            else resolve();
-          };
-          if (myPlaybackId !== currentPlaybackId) { activeAudios.delete(audio); resolve(); return; }
-          audio.play().catch(() => {
-            activeAudios.delete(audio);
-            if (myPlaybackId === currentPlaybackId) fallbackWebSpeech(text, lang, slow).then(resolve);
-            else resolve();
-          });
-        });
+      audio.onerror = () => {
+        activeAudios.delete(audio);
+        if (myPlaybackId === currentPlaybackId) fallbackWebSpeech(text, lang, slow).then(resolve);
+        else resolve();
+      };
+
+      if (myPlaybackId !== currentPlaybackId) {
+        activeAudios.delete(audio);
+        resolve();
+        return;
       }
-    }
-  } catch {}
 
-  // Fallback: server unavailable (static deployment) or non-200
-  if (myPlaybackId === currentPlaybackId) {
-    await fallbackWebSpeech(text, lang, slow);
+      audio.play().catch(() => {
+        activeAudios.delete(audio);
+        if (myPlaybackId === currentPlaybackId) fallbackWebSpeech(text, lang, slow).then(resolve);
+        else resolve();
+      });
+    });
+  } catch {
+    if (myPlaybackId === currentPlaybackId) {
+      await fallbackWebSpeech(text, lang, slow);
+    }
   }
 };
 

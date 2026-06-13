@@ -118,12 +118,10 @@ export function Practice() {
       resultHandled = true;
       setIsListeningPronunciation(false);
       setPronunciationResult('fail');
-      if (event.error === 'no-speech') {
-        setSpokenText('(No speech detected)');
-      } else {
-        setSpokenText(`(Error: ${event.error})`);
-        console.error('Speech recognition error: ' + event.error);
-      }
+      event.error === 'no-speech'
+        ? setSpokenText('(No speech detected)')
+        : setSpokenText(`(Error: ${event.error})`);
+      try { recognition.abort(); } catch {}
     };
 
     recognition.onend = () => {

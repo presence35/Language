@@ -7,6 +7,14 @@ declare const self: ServiceWorkerGlobalScope;
 
 precacheAndRoute(self.__WB_MANIFEST);
 
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', () => {
+  self.clients.claim();
+});
+
 registerRoute(
   ({ request }) => request.mode === 'navigate',
   new NetworkFirst({ cacheName: 'pages' })
