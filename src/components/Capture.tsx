@@ -24,181 +24,33 @@ interface Animal {
   id: string;
   nameEn: string;
   nameRu: string;
-  bgClass: string;
-  borderClass: string;
-  recordingBg: string;
-  pulseColor: string;
-  svg: React.ReactNode;
+  image: string;
 }
 
 const ANIMALS: Animal[] = [
-  {
-    id: 'bunny',
-    nameEn: 'Bunny',
-    nameRu: 'Зайчик',
-    bgClass: 'bg-pink-50 hover:bg-pink-100',
-    borderClass: 'border-pink-200',
-    recordingBg: 'bg-pink-500',
-    pulseColor: 'rgba(244, 114, 182, 0.4)',
-    svg: (
-      <svg viewBox="0 0 100 100" className="w-16 h-16 transform transition-transform hover:scale-105">
-        <ellipse cx="38" cy="25" rx="8" ry="22" fill="#FCE7F3" stroke="#F472B6" strokeWidth="3" />
-        <ellipse cx="38" cy="25" rx="4" ry="15" fill="#F472B6" />
-        <ellipse cx="62" cy="25" rx="8" ry="22" fill="#FCE7F3" stroke="#F472B6" strokeWidth="3" />
-        <ellipse cx="62" cy="25" rx="4" ry="15" fill="#F472B6" />
-        <circle cx="50" cy="65" r="24" fill="#FFFFFF" stroke="#F472B6" strokeWidth="3" />
-        <circle cx="36" cy="68" r="4" fill="#F472B6" opacity="0.6" />
-        <circle cx="64" cy="68" r="4" fill="#F472B6" opacity="0.6" />
-        <circle cx="42" cy="60" r="3.5" fill="#1F2937" />
-        <circle cx="58" cy="60" r="3.5" fill="#1F2937" />
-        <circle cx="43" cy="59" r="1" fill="#FFFFFF" />
-        <circle cx="59" cy="59" r="1" fill="#FFFFFF" />
-        <polygon points="50,66, 47,63, 53,63" fill="#F472B6" />
-        <path d="M 47 69 Q 50 72 53 69" fill="none" stroke="#F472B6" strokeWidth="2.5" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    id: 'elephant',
-    nameEn: 'Elephant',
-    nameRu: 'Слонёнок',
-    bgClass: 'bg-sky-50 hover:bg-sky-100',
-    borderClass: 'border-sky-200',
-    recordingBg: 'bg-sky-500',
-    pulseColor: 'rgba(56, 189, 248, 0.4)',
-    svg: (
-      <svg viewBox="0 0 100 100" className="w-16 h-16 transform transition-transform hover:scale-105">
-        <ellipse cx="23" cy="50" rx="16" ry="18" fill="#E0F2FE" stroke="#38BDF8" strokeWidth="3" />
-        <ellipse cx="23" cy="50" rx="10" ry="11" fill="#BAE6FD" />
-        <ellipse cx="77" cy="50" rx="16" ry="18" fill="#E0F2FE" stroke="#38BDF8" strokeWidth="3" />
-        <ellipse cx="77" cy="50" rx="10" ry="11" fill="#BAE6FD" />
-        <circle cx="50" cy="52" r="22" fill="#F0F9FF" stroke="#38BDF8" strokeWidth="3" />
-        <circle cx="38" cy="58" r="3" fill="#FDA4AF" opacity="0.6" />
-        <circle cx="62" cy="58" r="3" fill="#FDA4AF" opacity="0.6" />
-        <circle cx="42" cy="48" r="3.5" fill="#1F2937" />
-        <circle cx="58" cy="48" r="3.5" fill="#1F2937" />
-        <circle cx="43" cy="47" r="1" fill="#FFFFFF" />
-        <circle cx="59" cy="47" r="1" fill="#FFFFFF" />
-        <path d="M 50 56 Q 50 72 58 70 Q 61 68 59 66 Q 54 67 53 56" fill="#E0F2FE" stroke="#38BDF8" strokeWidth="3.5" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  {
-    id: 'puppy',
-    nameEn: 'Puppy',
-    nameRu: 'Собачка',
-    bgClass: 'bg-amber-50 hover:bg-amber-100',
-    borderClass: 'border-amber-200',
-    recordingBg: 'bg-amber-500',
-    pulseColor: 'rgba(245, 158, 11, 0.4)',
-    svg: (
-      <svg viewBox="0 0 100 100" className="w-16 h-16 transform transition-transform hover:scale-105">
-        <circle cx="50" cy="55" r="22" fill="#FEF3C7" stroke="#F59E0B" strokeWidth="3" />
-        <path d="M 22 42 Q 12 50 18 68 Q 28 68 28 48 Z" fill="#F59E0B" stroke="#D97706" strokeWidth="2.5" />
-        <path d="M 78 42 Q 88 50 82 68 Q 72 68 72 48 Z" fill="#F59E0B" stroke="#D97706" strokeWidth="2.5" />
-        <circle cx="36" cy="62" r="3" fill="#F87171" opacity="0.5" />
-        <circle cx="64" cy="62" r="3" fill="#F87171" opacity="0.5" />
-        <circle cx="40" cy="50" r="3.5" fill="#1F2937" />
-        <circle cx="60" cy="50" r="3.5" fill="#1F2937" />
-        <circle cx="41" cy="49" r="1" fill="#FFFFFF" />
-        <circle cx="61" cy="49" r="1" fill="#FFFFFF" />
-        <ellipse cx="50" cy="62" rx="7" ry="5" fill="#FFFBEB" stroke="#F59E0B" strokeWidth="2" />
-        <ellipse cx="50" cy="59" rx="3.5" ry="2.5" fill="#1F2937" />
-        <path d="M 47 64 Q 50 67 53 64" fill="none" stroke="#1F2937" strokeWidth="2.5" />
-        <path d="M 48 64 Q 50 72 52 64 Z" fill="#EF4444" />
-      </svg>
-    ),
-  },
-  {
-    id: 'kitten',
-    nameEn: 'Kitten',
-    nameRu: 'Кошечка',
-    bgClass: 'bg-orange-50 hover:bg-orange-100',
-    borderClass: 'border-orange-200',
-    recordingBg: 'bg-orange-500',
-    pulseColor: 'rgba(249, 115, 22, 0.4)',
-    svg: (
-      <svg viewBox="0 0 100 100" className="w-16 h-16 transform transition-transform hover:scale-105">
-        <polygon points="26,45 15,18 42,34" fill="#FFEDD5" stroke="#F97316" strokeWidth="3" strokeLinejoin="round" />
-        <polygon points="26,45 22,25 36,35" fill="#FED7AA" />
-        <polygon points="74,45 85,18 58,34" fill="#FFEDD5" stroke="#F97316" strokeWidth="3" strokeLinejoin="round" />
-        <polygon points="74,45 78,25 64,35" fill="#FED7AA" />
-        <ellipse cx="50" cy="55" rx="24" ry="20" fill="#FFF7ED" stroke="#F97316" strokeWidth="3" />
-        <circle cx="34" cy="62" r="3" fill="#FDA4AF" opacity="0.6" />
-        <circle cx="66" cy="62" r="3" fill="#FDA4AF" opacity="0.6" />
-        <ellipse cx="40" cy="48" rx="4" ry="5" fill="#10B981" />
-        <ellipse cx="40" cy="48" rx="1.5" ry="4" fill="#1F2937" />
-        <circle cx="39" cy="46" r="1.5" fill="#FFFFFF" />
-        <ellipse cx="60" cy="48" rx="4" ry="5" fill="#10B981" />
-        <ellipse cx="60" cy="48" rx="1.5" ry="4" fill="#1F2937" />
-        <circle cx="59" cy="46" r="1.5" fill="#FFFFFF" />
-        <polygon points="50,56 46,53 54,53" fill="#FDA4AF" />
-        <path d="M 46 58 Q 50 61 54 58" fill="none" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="24" y1="58" x2="12" y2="56" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="24" y1="62" x2="10" y2="64" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="76" y1="58" x2="88" y2="56" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="76" y1="62" x2="90" y2="64" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    id: 'bear',
-    nameEn: 'Bear Cub',
-    nameRu: 'Мишка',
-    bgClass: 'bg-stone-50 hover:bg-stone-100',
-    borderClass: 'border-amber-200',
-    recordingBg: 'bg-amber-700',
-    pulseColor: 'rgba(180, 83, 9, 0.4)',
-    svg: (
-      <svg viewBox="0 0 100 100" className="w-16 h-16 transform transition-transform hover:scale-105">
-        <circle cx="28" cy="35" r="10" fill="#D97706" stroke="#78350F" strokeWidth="3" />
-        <circle cx="28" cy="35" r="5" fill="#FEF3C7" />
-        <circle cx="72" cy="35" r="10" fill="#D97706" stroke="#78350F" strokeWidth="3" />
-        <circle cx="72" cy="35" r="5" fill="#FEF3C7" />
-        <circle cx="50" cy="55" r="23" fill="#B45309" stroke="#78350F" strokeWidth="3" />
-        <circle cx="36" cy="62" r="3" fill="#F87171" opacity="0.4" />
-        <circle cx="64" cy="62" r="3" fill="#F87171" opacity="0.4" />
-        <circle cx="41" cy="48" r="3.5" fill="#1F2937" />
-        <circle cx="59" cy="48" r="3.5" fill="#1F2937" />
-        <circle cx="42" cy="47" r="1" fill="#FFFFFF" />
-        <circle cx="60" cy="47" r="1" fill="#FFFFFF" />
-        <ellipse cx="50" cy="61" rx="8" ry="6" fill="#FDE68A" />
-        <ellipse cx="50" cy="58" rx="3.5" ry="2" fill="#1F2937" />
-        <path d="M 47 62 Q 50 64 53 62" fill="none" stroke="#78350F" strokeWidth="2.5" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    id: 'panda',
-    nameEn: 'Panda',
-    nameRu: 'Панда',
-    bgClass: 'bg-emerald-50 hover:bg-emerald-100',
-    borderClass: 'border-emerald-200',
-    recordingBg: 'bg-emerald-500',
-    pulseColor: 'rgba(16, 185, 129, 0.4)',
-    svg: (
-      <svg viewBox="0 0 100 100" className="w-16 h-16 transform transition-transform hover:scale-105">
-        <circle cx="30" cy="32" r="9" fill="#1F2937" />
-        <circle cx="70" cy="32" r="9" fill="#1F2937" />
-        <circle cx="50" cy="55" r="23" fill="#FFFFFF" stroke="#1F2937" strokeWidth="3" />
-        <ellipse cx="40" cy="50" rx="6" ry="7" fill="#1F2937" transform="rotate(-15 40 50)" />
-        <ellipse cx="60" cy="50" rx="6" ry="7" fill="#1F2937" transform="rotate(15 60 50)" />
-        <circle cx="41" cy="49" r="2.5" fill="#FFFFFF" />
-        <circle cx="41" cy="49" r="1" fill="#1F2937" />
-        <circle cx="59" cy="49" r="2.5" fill="#FFFFFF" />
-        <circle cx="59" cy="49" r="1" fill="#1F2937" />
-        <circle cx="34" cy="62" r="3" fill="#F472B6" opacity="0.6" />
-        <circle cx="66" cy="62" r="3" fill="#F472B6" opacity="0.6" />
-        <ellipse cx="50" cy="59" rx="3" ry="1.5" fill="#1F2937" />
-        <path d="M 47 62 Q 50 64 53 62" fill="none" stroke="#1F2937" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-    ),
-  },
+  { id: 'bear',     nameEn: 'Bear',      nameRu: 'Мишка',         image: '/animals/bear.png' },
+  { id: 'bird',     nameEn: 'Bird',      nameRu: 'Птичка',        image: '/animals/bird.png' },
+  { id: 'bunny',    nameEn: 'Bunny',     nameRu: 'Зайчик',        image: '/animals/bunny.png' },
+  { id: 'cat',      nameEn: 'Cat',       nameRu: 'Кошечка',       image: '/animals/cat.png' },
+  { id: 'cow',      nameEn: 'Cow',       nameRu: 'Коровка',       image: '/animals/cow.png' },
+  { id: 'croc',     nameEn: 'Crocodile', nameRu: 'Крокодил',      image: '/animals/croc.png' },
+  { id: 'dog',      nameEn: 'Dog',       nameRu: 'Собачка',       image: '/animals/dog.png' },
+  { id: 'duck',     nameEn: 'Duck',      nameRu: 'Уточка',        image: '/animals/duck.png' },
+  { id: 'elephant', nameEn: 'Elephant',  nameRu: 'Слонёнок',      image: '/animals/elephant.png' },
+  { id: 'ladybug',  nameEn: 'Ladybug',   nameRu: 'Божья коровка', image: '/animals/ladybug.png' },
+  { id: 'monkey',   nameEn: 'Monkey',    nameRu: 'Обезьянка',     image: '/animals/monkey.png' },
+  { id: 'pig',      nameEn: 'Pig',       nameRu: 'Свинка',        image: '/animals/pig.png' },
 ];
+
+function pickSixAnimals(): Animal[] {
+  const shuffled = [...ANIMALS].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 6);
+}
 
 export function Capture() {
   const { addPhrase, phrases, deletePhrase, settings } = useStorage();
   const [loading, setLoading] = useState(false);
+  const [selectedAnimals] = useState<Animal[]>(() => pickSixAnimals());
   
   const [resultsHistory, setResultsHistory] = useState<TranslationResult[]>(() => {
     try {
@@ -676,8 +528,8 @@ export function Capture() {
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
-      <div className="flex w-full justify-between items-center gap-1 sm:gap-2 pb-2">
-        {settings.showAnimals ? ANIMALS.map((animal) => {
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 pb-2 justify-items-center">
+        {settings.showAnimals ? selectedAnimals.map((animal) => {
           const isActive = activeAnimal?.id === animal.id;
           const isRecordingOrLoading = (recording || loading) && activeAnimal;
           const shouldGrayscale = isRecordingOrLoading && !isActive;
@@ -689,32 +541,23 @@ export function Capture() {
               key={animal.id}
               onClick={() => handleAnimalClick(animal)}
               disabled={loading}
-              className={`flex-1 max-w-[16%] p-1 relative rounded-xl flex flex-col items-center justify-center transition-all duration-300 transform outline-none active:scale-95 ${
+              className={`relative p-2 flex items-center justify-center transition-all duration-300 transform outline-none active:scale-95 ${
                 isThisRecording 
-                  ? 'bg-red-50 ring-2 ring-red-300 ring-opacity-50 scale-105 shadow-md' 
+                  ? 'ring-2 ring-red-300 ring-opacity-50 scale-105 rounded-xl' 
                   : isThisLoading
-                  ? 'bg-indigo-50 ring-2 ring-indigo-300 ring-opacity-50 scale-105 shadow-md animate-bounce'
+                  ? 'ring-2 ring-indigo-300 ring-opacity-50 scale-105 rounded-xl animate-bounce'
                   : isActive
-                  ? `scale-105 ${animal.bgClass}`
-                  : `${animal.bgClass} opacity-95 hover:scale-105`
+                  ? 'scale-105 ring-2 ring-indigo-500 rounded-xl'
+                  : 'opacity-95 hover:scale-105 rounded-xl'
               } ${shouldGrayscale ? 'grayscale opacity-50 scale-95' : ''}`}
             >
-              {isThisRecording && (
-                <span className="absolute top-1 right-1 flex h-2.5 w-2.5 z-10">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-                </span>
-              )}
-              
-              <div className="flex-1 flex items-center justify-center pointer-events-none w-full">
-                <div className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-auto">{animal.svg}</div>
-              </div>
+              <img src={animal.image} alt={animal.nameEn} className="w-20 h-20 sm:w-24 sm:h-24 object-contain pointer-events-none" />
             </button>
           );
         }) : (
            <div className="flex w-full justify-center pb-4 pt-4">
               <button 
-                onClick={() => handleAnimalClick(ANIMALS[0]!)}
+                onClick={() => handleAnimalClick(selectedAnimals[0]!)}
                 disabled={loading}
                 className="w-24 h-24 rounded-full bg-slate-800 border-4 border-slate-700 hover:border-indigo-500/50 flex items-center justify-center text-slate-300 hover:text-white transition-all shadow-sm active:scale-95"
               >
@@ -907,10 +750,10 @@ export function Capture() {
       {recording && activeAnimal && (
         <div 
           onClick={() => handleAnimalClick(activeAnimal)}
-          className={`${settings.showAnimals ? `bg-${activeAnimal.bgClass.split('bg-')[1].split(' ')[0]} border border-indigo-200` : 'bg-slate-800 border-slate-700'} p-6 rounded-3xl flex flex-col items-center space-y-4 shadow-inner transition-all duration-300 cursor-pointer mt-2`}
+          className={`bg-slate-900 border border-slate-800 p-6 rounded-3xl flex flex-col items-center space-y-4 shadow-inner transition-all duration-300 cursor-pointer mt-2`}
         >
           <div className="text-center">
-            <h3 className={`${settings.showAnimals ? 'text-slate-900' : 'text-slate-100'} font-black text-xl flex items-center justify-center gap-1`}>
+            <h3 className={`text-slate-100 font-black text-xl flex items-center justify-center gap-1`}>
               <span>{getListeningText(speechLanguage, activeAnimal, settings.showAnimals)}</span>
             </h3>
           </div>
@@ -926,12 +769,9 @@ export function Capture() {
       )}
 
       {loading && !recording && (
-        <div className={activeAnimal && settings.showAnimals
-          ? `${activeAnimal.bgClass.split(' ')[0]} ${activeAnimal.borderClass} border p-8 rounded-3xl flex flex-col items-center justify-center space-y-4 shadow-sm transition-all duration-300 animate-pulse mt-2`
-          : "bg-slate-800 border border-slate-700 p-8 rounded-3xl flex flex-col items-center justify-center space-y-4 shadow-sm transition-all duration-300 animate-pulse mt-2"
-        }>
+        <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl flex flex-col items-center justify-center space-y-4 shadow-sm transition-all duration-300 animate-pulse mt-2">
           <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" />
-          <h3 className={activeAnimal && settings.showAnimals ? "text-slate-900 font-black text-2xl text-center" : "text-slate-200 font-bold text-lg text-center"}>
+          <h3 className="text-slate-200 font-bold text-lg text-center">
             {getTranslatingText(speechLanguage, activeAnimal, settings.showAnimals)}
           </h3>
         </div>

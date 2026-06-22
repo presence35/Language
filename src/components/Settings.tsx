@@ -234,7 +234,7 @@ export function Settings() {
                  <Bot className="w-4 h-4 text-slate-400" />
                  <p className="text-slate-200 font-semibold">Show Animal Modes</p>
                </div>
-               <p className="text-sm text-slate-400">Toggle whether to show the 6 animals (kid mode) or just a simple microphone icon next to the translate box.</p>
+               <p className="text-sm text-slate-400">Toggle whether to show 6 random animals (kid mode) or just a simple microphone icon next to the translate box.</p>
              </div>
              <button
                onClick={() => updateSettings({ showAnimals: !settings.showAnimals })}

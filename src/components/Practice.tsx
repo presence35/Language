@@ -9,13 +9,32 @@ import type { Phrase } from '../types';
 const DEBUG = true;
 
 export function Practice() {
-  const { phrases, updatePhrase, updatePracticeStats } = useStorage();
+  const { phrases, updatePhrase, updatePracticeStats, settings } = useStorage();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [playingAudio, setPlayingAudio] = useState(false);
   const [practiceSession, setPracticeSession] = useState<Phrase[]>([]);
   const [sessionStartTime, setSessionStartTime] = useState<number>(Date.now());
   const [sessionTracked, setSessionTracked] = useState(true);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const nextSessionNote = (() => {
+    if (!settings.notificationsEnabled) return null;
+    const freqHrs = settings.notificationFrequency === '2h' ? 2 : settings.notificationFrequency === '6h' ? 6 : 24;
+    const last = parseInt(localStorage.getItem('last_notified_time') || '0', 10);
+    if (!last) {
+      const first = now + freqHrs * 60 * 60 * 1000;
+      return `Next auto session ${new Date(first).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+    }
+    const next = last + freqHrs * 60 * 60 * 1000;
+    if (next <= now) return 'Auto session due soon';
+    return `Next auto session ${new Date(next).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+  })();
   
   const [isMiniTest, setIsMiniTest] = useState(false);
   const [isListeningPronunciation, setIsListeningPronunciation] = useState(false);
@@ -198,7 +217,7 @@ export function Practice() {
             {isMiniTest ? <><Zap className="w-6 h-6 text-yellow-400"/> Mini Test</> : "Daily Practice"}
           </h2>
           <p className="text-slate-400 text-sm mt-1">
-             {isMiniTest ? "Quick 30s challenge" : "Spaced Repetition & Recall"}
+             {isMiniTest ? "Quick 30s challenge" : (nextSessionNote || "Spaced Repetition & Recall")}
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
