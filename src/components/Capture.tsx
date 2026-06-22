@@ -28,18 +28,18 @@ interface Animal {
 }
 
 const ANIMALS: Animal[] = [
-  { id: 'bear',     nameEn: 'Bear',      nameRu: 'Мишка',         image: '/animals/bear.png' },
-  { id: 'bird',     nameEn: 'Bird',      nameRu: 'Птичка',        image: '/animals/bird.png' },
-  { id: 'bunny',    nameEn: 'Bunny',     nameRu: 'Зайчик',        image: '/animals/bunny.png' },
-  { id: 'cat',      nameEn: 'Cat',       nameRu: 'Кошечка',       image: '/animals/cat.png' },
-  { id: 'cow',      nameEn: 'Cow',       nameRu: 'Коровка',       image: '/animals/cow.png' },
-  { id: 'croc',     nameEn: 'Crocodile', nameRu: 'Крокодил',      image: '/animals/croc.png' },
-  { id: 'dog',      nameEn: 'Dog',       nameRu: 'Собачка',       image: '/animals/dog.png' },
-  { id: 'duck',     nameEn: 'Duck',      nameRu: 'Уточка',        image: '/animals/duck.png' },
-  { id: 'elephant', nameEn: 'Elephant',  nameRu: 'Слонёнок',      image: '/animals/elephant.png' },
-  { id: 'ladybug',  nameEn: 'Ladybug',   nameRu: 'Божья коровка', image: '/animals/ladybug.png' },
-  { id: 'monkey',   nameEn: 'Monkey',    nameRu: 'Обезьянка',     image: '/animals/monkey.png' },
-  { id: 'pig',      nameEn: 'Pig',       nameRu: 'Свинка',        image: '/animals/pig.png' },
+  { id: 'bear',     nameEn: 'Bear',      nameRu: 'Мишка',         image: import.meta.env.BASE_URL + 'animals/bear.png' },
+  { id: 'bird',     nameEn: 'Bird',      nameRu: 'Птичка',        image: import.meta.env.BASE_URL + 'animals/bird.png' },
+  { id: 'bunny',    nameEn: 'Bunny',     nameRu: 'Зайчик',        image: import.meta.env.BASE_URL + 'animals/bunny.png' },
+  { id: 'cat',      nameEn: 'Cat',       nameRu: 'Кошечка',       image: import.meta.env.BASE_URL + 'animals/cat.png' },
+  { id: 'cow',      nameEn: 'Cow',       nameRu: 'Коровка',       image: import.meta.env.BASE_URL + 'animals/cow.png' },
+  { id: 'croc',     nameEn: 'Crocodile', nameRu: 'Крокодил',      image: import.meta.env.BASE_URL + 'animals/croc.png' },
+  { id: 'dog',      nameEn: 'Dog',       nameRu: 'Собачка',       image: import.meta.env.BASE_URL + 'animals/dog.png' },
+  { id: 'duck',     nameEn: 'Duck',      nameRu: 'Уточка',        image: import.meta.env.BASE_URL + 'animals/duck.png' },
+  { id: 'elephant', nameEn: 'Elephant',  nameRu: 'Слонёнок',      image: import.meta.env.BASE_URL + 'animals/elephant.png' },
+  { id: 'ladybug',  nameEn: 'Ladybug',   nameRu: 'Божья коровка', image: import.meta.env.BASE_URL + 'animals/ladybug.png' },
+  { id: 'monkey',   nameEn: 'Monkey',    nameRu: 'Обезьянка',     image: import.meta.env.BASE_URL + 'animals/monkey.png' },
+  { id: 'pig',      nameEn: 'Pig',       nameRu: 'Свинка',        image: import.meta.env.BASE_URL + 'animals/pig.png' },
 ];
 
 function pickSixAnimals(): Animal[] {
@@ -306,12 +306,7 @@ export function Capture() {
         setRecording(false);
         speechRecoRef.current = null;
         if (!resultReceived) {
-          const manual = prompt("Speech wasn't recognized. Type what you said (or Cancel to discard):");
-          if (manual && manual.trim()) {
-            processVoiceInput(manual.trim());
-          } else {
-            setActiveAnimal(null);
-          }
+          setActiveAnimal(null);
         }
       };
 
@@ -398,13 +393,9 @@ export function Capture() {
 
           if (!finalTranscript || finalTranscript.trim() === '') {
               debugLog('No speech text recognized');
-              const manual = prompt("Speech wasn't recognized. Type what you said (or Cancel to discard):");
-              if (!manual || manual.trim() === '') {
-                  setLoading(false);
-                  setActiveAnimal(null);
-                  return;
-              }
-              finalTranscript = manual.trim();
+              setLoading(false);
+              setActiveAnimal(null);
+              return;
           }
 
           processVoiceInput(finalTranscript, base64data, actualMimeType);

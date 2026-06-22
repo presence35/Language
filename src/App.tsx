@@ -78,7 +78,7 @@ export default function App() {
         type: 'show-notification',
         title,
         body,
-        icon: '/icon.svg',
+        icon: '/icons/icon.svg',
       });
     } else {
       const notif = new Notification(title, { body, icon: '/icon.svg' });

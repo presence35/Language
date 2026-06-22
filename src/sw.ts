@@ -35,7 +35,7 @@ self.addEventListener('message', (event) => {
     event.waitUntil(
       self.registration.showNotification(event.data.title || '', {
         body: event.data.body || '',
-        icon: event.data.icon || (self.registration.scope + 'icon.svg'),
+        icon: event.data.icon || (self.registration.scope + 'icons/icon.svg'),
       })
     );
   }
@@ -113,6 +113,6 @@ async function handlePeriodicCheck() {
 
   self.registration.showNotification(title, {
     body,
-    icon: self.registration.scope + 'icon.svg',
+    icon: self.registration.scope + 'icons/icon.svg',
   });
 }
