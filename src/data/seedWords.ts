@@ -1,24 +1,41 @@
 import { Phrase } from '../types';
+import { defaultSM2Fields } from '../utils/sm2';
+
+const now = Date.now();
+
+function seed(id: number, russianPhrase: string, englishPhrase: string, wordBreakdown: { word: string; translation: string }[], categories: string[]): Phrase {
+  return {
+    id: `seed_${id}`,
+    russianPhrase,
+    englishPhrase,
+    wordBreakdown,
+    dateAdded: now,
+    difficultyScore: 50,
+    masteryScore: 0,
+    categories,
+    ...defaultSM2Fields(now),
+  };
+}
 
 export const SEED_WORDS: Phrase[] = [
-  { id: "seed_1", russianPhrase: "Шо?", englishPhrase: "What? (Instead of Что)", wordBreakdown: [{ word: "Шо", translation: "What" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang', 'Questions'] },
-  { id: "seed_2", russianPhrase: "Таки да", englishPhrase: "Yes, indeed / You bet", wordBreakdown: [{ word: "Таки", translation: "Indeed/Still" }, { word: "да", translation: "yes" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang'] },
-  { id: "seed_3", russianPhrase: "Тю!", englishPhrase: "Expression of surprise or dismissal", wordBreakdown: [{ word: "Тю", translation: "Wow/Whatever" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang'] },
-  { id: "seed_4", russianPhrase: "Азохен вей!", englishPhrase: "Oh my god! / What a nightmare!", wordBreakdown: [{ word: "Азохен", translation: "Oh" }, { word: "вей", translation: "woe/pain" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang'] },
-  { id: "seed_5", russianPhrase: "Ша!", englishPhrase: "Quiet! / Stop it!", wordBreakdown: [{ word: "Ша", translation: "Quiet" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang', 'Discipline'] },
-  { id: "seed_6", russianPhrase: "Делать базар", englishPhrase: "To go grocery shopping", wordBreakdown: [{ word: "Делать", translation: "To do/make" }, { word: "базар", translation: "market" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang', 'Shopping'] },
-  { id: "seed_7", russianPhrase: "Понты", englishPhrase: "Showing off / Flexing", wordBreakdown: [{ word: "Понты", translation: "Showing off" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang'] },
-  { id: "seed_8", russianPhrase: "На шару", englishPhrase: "For free", wordBreakdown: [{ word: "На", translation: "On" }, { word: "шару", translation: "freebie" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang'] },
-  { id: "seed_9", russianPhrase: "Гэвалт", englishPhrase: "Noise, shouting, panic", wordBreakdown: [{ word: "Гэвалт", translation: "Noise/Commotion" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang'] },
-  { id: "seed_10", russianPhrase: "Семочки", englishPhrase: "Sunflower seeds", wordBreakdown: [{ word: "Семочки", translation: "Sunflower seeds" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Food & Drink'] },
-  { id: "seed_11", russianPhrase: "Мансы", englishPhrase: "Tricks / funny business / rumors", wordBreakdown: [{ word: "Мансы", translation: "Tricks/Rumors" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang'] },
-  { id: "seed_12", russianPhrase: "Кастрюля", englishPhrase: "Gypsy cab / Hitchhiking", wordBreakdown: [{ word: "Кастрюля", translation: "Pot/Pan (Slang for cab)" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang', 'Transport'] },
-  { id: "seed_13", russianPhrase: "Привоз", englishPhrase: "Privoz (Famous Odesa market)", wordBreakdown: [{ word: "Привоз", translation: "Privoz market" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Places'] },
-  { id: "seed_14", russianPhrase: "Бычки", englishPhrase: "Gobies (small fish popular in Odesa)", wordBreakdown: [{ word: "Бычки", translation: "Goby fish" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Food & Drink'] },
-  { id: "seed_15", russianPhrase: "Иди гуляй", englishPhrase: "Get lost / Take a walk", wordBreakdown: [{ word: "Иди", translation: "Go" }, { word: "гуляй", translation: "walk" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Phrases'] },
-  { id: "seed_16", russianPhrase: "Шикарно", englishPhrase: "Gorgeous / Luxurious", wordBreakdown: [{ word: "Шикарно", translation: "Luxurious/Awesome" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Adjectives'] },
-  { id: "seed_17", russianPhrase: "Не фонтан", englishPhrase: "Not great / subpar", wordBreakdown: [{ word: "Не", translation: "Not" }, { word: "фонтан", translation: "fountain (great)" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang'] },
-  { id: "seed_18", russianPhrase: "Шоб я так жил!", englishPhrase: "I wish I lived like that! (expression of envy/admiration)", wordBreakdown: [{ word: "Шоб", translation: "So that (Slang)" }, { word: "я", translation: "I" }, { word: "так", translation: "so/like that" }, { word: "жил", translation: "lived" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang'] },
-  { id: "seed_19", russianPhrase: "Майсы", englishPhrase: "Stories / excuses", wordBreakdown: [{ word: "Майсы", translation: "Stories" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang'] },
-  { id: "seed_20", russianPhrase: "Ляля", englishPhrase: "A beauty / perfect thing", wordBreakdown: [{ word: "Ляля", translation: "Doll/Beauty" }], dateAdded: Date.now(), difficultyScore: 50, masteryScore: 0, categories: ['Odesa Slang'] }
+  seed(1, "Шо?", "What? (Instead of Что)", [{ word: "Шо", translation: "What" }], ['Odesa Slang', 'Questions']),
+  seed(2, "Таки да", "Yes, indeed / You bet", [{ word: "Таки", translation: "Indeed/Still" }, { word: "да", translation: "yes" }], ['Odesa Slang']),
+  seed(3, "Тю!", "Expression of surprise or dismissal", [{ word: "Тю", translation: "Wow/Whatever" }], ['Odesa Slang']),
+  seed(4, "Азохен вей!", "Oh my god! / What a nightmare!", [{ word: "Азохен", translation: "Oh" }, { word: "вей", translation: "woe/pain" }], ['Odesa Slang']),
+  seed(5, "Ша!", "Quiet! / Stop it!", [{ word: "Ша", translation: "Quiet" }], ['Odesa Slang', 'Discipline']),
+  seed(6, "Делать базар", "To go grocery shopping", [{ word: "Делать", translation: "To do/make" }, { word: "базар", translation: "market" }], ['Odesa Slang', 'Shopping']),
+  seed(7, "Понты", "Showing off / Flexing", [{ word: "Понты", translation: "Showing off" }], ['Odesa Slang']),
+  seed(8, "На шару", "For free", [{ word: "На", translation: "On" }, { word: "шару", translation: "freebie" }], ['Odesa Slang']),
+  seed(9, "Гэвалт", "Noise, shouting, panic", [{ word: "Гэвалт", translation: "Noise/Commotion" }], ['Odesa Slang']),
+  seed(10, "Семочки", "Sunflower seeds", [{ word: "Семочки", translation: "Sunflower seeds" }], ['Food & Drink']),
+  seed(11, "Мансы", "Tricks / funny business / rumors", [{ word: "Мансы", translation: "Tricks/Rumors" }], ['Odesa Slang']),
+  seed(12, "Кастрюля", "Gypsy cab / Hitchhiking", [{ word: "Кастрюля", translation: "Pot/Pan (Slang for cab)" }], ['Odesa Slang', 'Transport']),
+  seed(13, "Привоз", "Privoz (Famous Odesa market)", [{ word: "Привоз", translation: "Privoz market" }], ['Places']),
+  seed(14, "Бычки", "Gobies (small fish popular in Odesa)", [{ word: "Бычки", translation: "Goby fish" }], ['Food & Drink']),
+  seed(15, "Иди гуляй", "Get lost / Take a walk", [{ word: "Иди", translation: "Go" }, { word: "гуляй", translation: "walk" }], ['Phrases']),
+  seed(16, "Шикарно", "Gorgeous / Luxurious", [{ word: "Шикарно", translation: "Luxurious/Awesome" }], ['Adjectives']),
+  seed(17, "Не фонтан", "Not great / subpar", [{ word: "Не", translation: "Not" }, { word: "фонтан", translation: "fountain (great)" }], ['Odesa Slang']),
+  seed(18, "Шоб я так жил!", "I wish I lived like that! (expression of envy/admiration)", [{ word: "Шоб", translation: "So that (Slang)" }, { word: "я", translation: "I" }, { word: "так", translation: "so/like that" }, { word: "жил", translation: "lived" }], ['Odesa Slang']),
+  seed(19, "Майсы", "Stories / excuses", [{ word: "Майсы", translation: "Stories" }], ['Odesa Slang']),
+  seed(20, "Ляля", "A beauty / perfect thing", [{ word: "Ляля", translation: "Doll/Beauty" }], ['Odesa Slang']),
 ];

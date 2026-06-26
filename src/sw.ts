@@ -74,34 +74,35 @@ async function handlePeriodicCheck() {
   if (!response) return;
 
   const data = await response.json();
-  const { phrases, lastNotified, frequency, defaultTargetLanguage, notificationSessionSize } = data;
+  const { phrases, lastNotified, frequency, notificationSessionSize } = data;
   const now = Date.now();
-  const hoursSince = (now - lastNotified) / (1000 * 60 * 60);
 
-  let shouldCheck = false;
-  if (frequency === '2h' && hoursSince >= 2) shouldCheck = true;
-  else if (frequency === '6h' && hoursSince >= 6) shouldCheck = true;
-  else if (frequency === '24h' && hoursSince >= 24) shouldCheck = true;
+  let freqMs = 2 * 60 * 60 * 1000;
+  if (frequency === '6h') freqMs = 6 * 60 * 60 * 1000;
+  else if (frequency === '24h') freqMs = 24 * 60 * 60 * 1000;
 
-  if (!shouldCheck || !Array.isArray(phrases) || phrases.length === 0) return;
+  if (now - lastNotified < freqMs) return;
+  if (!Array.isArray(phrases) || phrases.length === 0) return;
 
-  const includeMastered = Math.random() < 0.1;
   const count = notificationSessionSize || 10;
 
-  const scored = phrases.map((p: any) => {
-    const daysSince = Math.max(0.1, (now - p.dateAdded) / (1000 * 60 * 60 * 24));
-    const recentBoost = (p.difficultyScore > 20 && daysSince <= 3) ? 60 : 0;
-    const randomVal = Math.random() * 30;
-    const masteredPenalty = (!includeMastered && p.difficultyScore <= 20) ? -150 : 0;
-    const score = p.difficultyScore + recentBoost + randomVal + masteredPenalty;
-    return { phrase: p, score: Math.max(0, score) };
+  const due = phrases.filter((p: any) => p.nextReviewDate <= now);
+  due.sort((a: any, b: any) => {
+    const overdueA = now - a.nextReviewDate;
+    const overdueB = now - b.nextReviewDate;
+    return overdueB - overdueA;
   });
 
-  const eligible = scored.filter((s: any) => s.score > 0);
-  if (eligible.length === 0) return;
+  let session: any[];
+  if (due.length >= count) {
+    session = due.slice(0, count);
+  } else {
+    const notDue = phrases.filter((p: any) => p.nextReviewDate > now);
+    notDue.sort((a: any, b: any) => a.nextReviewDate - b.nextReviewDate);
+    session = [...due, ...notDue.slice(0, count - due.length)];
+  }
 
-  eligible.sort((a: any, b: any) => b.score - a.score);
-  const session = eligible.slice(0, Math.min(count, eligible.length)).map((s: any) => s.phrase);
+  if (session.length === 0) return;
 
   const ids = session.map((p: any) => p.id);
   cache.put('/pending-practice-ids', new Response(JSON.stringify(ids), { headers: { 'Content-Type': 'application/json' } }));

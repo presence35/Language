@@ -5,15 +5,29 @@ export interface WordBreakdown {
 
 export interface Phrase {
   id: string;
-  russianPhrase: string; // The target language phrase (Russian, Spanish, etc.)
-  englishPhrase: string; // The English translation
+  russianPhrase: string;
+  englishPhrase: string;
   wordBreakdown: WordBreakdown[];
   dateAdded: number;
   difficultyScore: number;
   masteryScore: number;
   categories: string[];
   playCount?: number;
-  targetLang?: string; // e.g. 'ru' or 'es'
+  targetLang?: string;
+  easeFactor: number;
+  intervalDays: number;
+  repetitions: number;
+  nextReviewDate: number;
+  lastReviewDate: number;
+}
+
+export type PracticeMode = 'listenChoose' | 'listenRepeat' | 'listenTranslate' | 'audioCloze';
+
+export interface ClozeData {
+  fullPhrase: string;
+  blankedPhrase: string;
+  correctWord: string;
+  options: string[];
 }
 
 export interface CommunicationFailure {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Phrase, CommunicationFailure, AppSettings, PracticeStats } from '../types';
 import { SEED_WORDS } from '../data/seedWords';
+import { defaultSM2Fields } from '../utils/sm2';
 
 const DEFAULT_SETTINGS: AppSettings = {
   defaultTargetLanguage: 'ru',
@@ -39,17 +40,25 @@ export function useStorage() {
       loadedPhrases = JSON.parse(storedPhrases);
     }
 
-    // Ensure seed words are present, inject new Odesa phrases once
     const hasSeededOdesa = localStorage.getItem('has_seeded_odesa');
     if (!hasSeededOdesa) {
-      // Clean out any old initial data that wasn't specific
       const customPhrases = loadedPhrases.filter(p => !p.id.startsWith('init_') && !p.id.startsWith('seed_'));
-      
-      // Inject the current seed
       loadedPhrases = [...customPhrases, ...SEED_WORDS];
       localStorage.setItem('has_seeded_odesa', 'true');
     }
-    
+
+    let migrated = false;
+    loadedPhrases = loadedPhrases.map(p => {
+      if (p.easeFactor === undefined || p.easeFactor === null) {
+        migrated = true;
+        return { ...p, ...defaultSM2Fields(p.dateAdded) };
+      }
+      return p;
+    });
+    if (migrated) {
+      localStorage.setItem('russian_phrases', JSON.stringify(loadedPhrases));
+    }
+
     setPhrases(loadedPhrases);
 
     if (storedFailures) setFailures(JSON.parse(storedFailures));
@@ -95,16 +104,18 @@ export function useStorage() {
     setSettings(prev => ({ ...prev, ...updates }));
   };
 
-  const addPhrase = (phrase: Omit<Phrase, 'id' | 'dateAdded' | 'difficultyScore' | 'masteryScore' | 'playCount'>) => {
+  const addPhrase = (phrase: Omit<Phrase, 'id' | 'dateAdded' | 'difficultyScore' | 'masteryScore' | 'playCount' | 'easeFactor' | 'intervalDays' | 'repetitions' | 'nextReviewDate' | 'lastReviewDate'>) => {
+    const now = Date.now();
     const newPhrase: Phrase = {
       ...phrase,
       targetLang: phrase.targetLang || 'ru',
-      id: Date.now().toString(),
-      dateAdded: Date.now(),
+      id: now.toString(),
+      dateAdded: now,
       difficultyScore: 50,
       masteryScore: 0,
       playCount: 0,
-      categories: phrase.categories || []
+      categories: phrase.categories || [],
+      ...defaultSM2Fields(now),
     };
     setPhrases(prev => [newPhrase, ...prev]);
   };

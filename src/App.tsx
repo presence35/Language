@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStorage } from './hooks/useStorage';
 import { Capture } from './components/Capture';
 import { Collection } from './components/Collection';
@@ -6,7 +6,8 @@ import { Practice } from './components/Practice';
 import { Settings } from './components/Settings';
 import { Stats } from './components/Stats';
 import { Mic, BookHeart, Dumbbell, Settings as SettingsIcon, BarChart3 } from 'lucide-react';
-import { generateSession } from './utils/session';
+import { isDue, daysOverdue } from './utils/sm2';
+import type { Phrase } from './types';
 
 type Tab = 'capture' | 'collection' | 'practice' | 'stats' | 'settings';
 
@@ -14,17 +15,34 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('capture');
   const { phrases, settings } = useStorage();
   const notificationInterval = useRef<any>(null);
+  const phrasesRef = useRef(phrases);
+  const settingsRef = useRef(settings);
+
+  useEffect(() => { phrasesRef.current = phrases; }, [phrases]);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
+
+  const getFrequencyMs = useCallback((freq: string) => {
+    if (freq === '2h') return 2 * 60 * 60 * 1000;
+    if (freq === '6h') return 6 * 60 * 60 * 1000;
+    return 24 * 60 * 60 * 1000;
+  }, []);
 
   const storeNotificationState = async () => {
     if (!('caches' in window)) return;
     try {
       const cache = await caches.open('notification-state');
       const data = JSON.stringify({
-        phrases: phrases.map(p => ({ id: p.id, russianPhrase: p.russianPhrase, difficultyScore: p.difficultyScore, dateAdded: p.dateAdded, targetLang: p.targetLang })),
+        phrases: phrasesRef.current.map(p => ({
+          id: p.id, russianPhrase: p.russianPhrase, englishPhrase: p.englishPhrase,
+          difficultyScore: p.difficultyScore, dateAdded: p.dateAdded, targetLang: p.targetLang,
+          easeFactor: p.easeFactor, intervalDays: p.intervalDays, repetitions: p.repetitions,
+          nextReviewDate: p.nextReviewDate, lastReviewDate: p.lastReviewDate,
+          wordBreakdown: p.wordBreakdown,
+        })),
         lastNotified: parseInt(localStorage.getItem('last_notified_time') || '0', 10),
-        frequency: settings.notificationFrequency,
-        defaultTargetLanguage: settings.defaultTargetLanguage,
-        notificationSessionSize: settings.notificationSessionSize || 10,
+        frequency: settingsRef.current.notificationFrequency,
+        defaultTargetLanguage: settingsRef.current.defaultTargetLanguage,
+        notificationSessionSize: settingsRef.current.notificationSessionSize || 10,
       });
       cache.put('/notification-state', new Response(data, { headers: { 'Content-Type': 'application/json' } }));
     } catch {}
@@ -40,36 +58,42 @@ export default function App() {
     } catch {}
   };
 
-  const checkAndNotify = async () => {
-    if (!settings.notificationsEnabled || Notification.permission !== 'granted') return;
+  const selectDuePhrases = useCallback((allPhrases: Phrase[], count: number): Phrase[] => {
+    const due = allPhrases.filter(isDue);
+    due.sort((a, b) => daysOverdue(b) - daysOverdue(a));
+    if (due.length >= count) return due.slice(0, count);
+    const notDue = allPhrases.filter(p => !isDue(p));
+    notDue.sort((a, b) => a.nextReviewDate - b.nextReviewDate);
+    return [...due, ...notDue.slice(0, count - due.length)];
+  }, []);
+
+  const checkAndNotify = useCallback(async () => {
+    const s = settingsRef.current;
+    const p = phrasesRef.current;
+    if (!s.notificationsEnabled || Notification.permission !== 'granted') return;
 
     const lastNotifiedStr = localStorage.getItem('last_notified_time');
     const lastNotified = lastNotifiedStr ? parseInt(lastNotifiedStr, 10) : 0;
     const now = Date.now();
+    const freqMs = getFrequencyMs(s.notificationFrequency);
 
     if (!lastNotifiedStr) {
       localStorage.setItem('last_notified_time', now.toString());
       return;
     }
 
-    const hoursSince = (now - lastNotified) / (1000 * 60 * 60);
+    if (now - lastNotified < freqMs) return;
+    if (p.length === 0) return;
 
-    let shouldCheck = false;
-    if (settings.notificationFrequency === '2h' && hoursSince >= 2) shouldCheck = true;
-    else if (settings.notificationFrequency === '6h' && hoursSince >= 6) shouldCheck = true;
-    else if (settings.notificationFrequency === '24h' && hoursSince >= 24) shouldCheck = true;
-
-    if (!shouldCheck || phrases.length === 0) return;
-
-    const includeMastered = Math.random() < 0.1;
-    const session = generateSession(phrases, settings.notificationSessionSize || 10, includeMastered);
+    const count = s.notificationSessionSize || 10;
+    const session = selectDuePhrases(p, count);
     if (session.length === 0) return;
 
-    const ids = session.map(p => p.id);
+    const ids = session.map(ph => ph.id);
     await storePendingIds(ids);
 
     const teasers = session.slice(0, Math.min(3, session.length));
-    const teaserText = teasers.map(p => p.russianPhrase).join(', ');
+    const teaserText = teasers.map(ph => ph.russianPhrase).join(', ');
     const title = 'Ready to practice?';
     const body = `Review words like: ${teaserText} — Tap to start a ${session.length}-word session!`;
 
@@ -89,15 +113,16 @@ export default function App() {
     }
 
     localStorage.setItem('last_notified_time', now.toString());
-  };
+  }, [getFrequencyMs, selectDuePhrases]);
 
   useEffect(() => {
     const startInterval = () => {
       if (notificationInterval.current) clearInterval(notificationInterval.current);
+      const freqMs = getFrequencyMs(settings.notificationFrequency);
       notificationInterval.current = setInterval(() => {
         checkAndNotify();
         storeNotificationState();
-      }, 60 * 60 * 1000);
+      }, freqMs);
     };
 
     const handleVisibility = () => {
@@ -109,14 +134,12 @@ export default function App() {
     if (settings.notificationsEnabled && Notification.permission === 'granted') {
       startInterval();
       document.addEventListener('visibilitychange', handleVisibility);
-
       storeNotificationState();
-
       navigator.serviceWorker.ready.then((reg) => {
         if ('periodicSync' in reg) {
           try {
             (reg as any).periodicSync.register('check-notifications', {
-              minInterval: 60 * 60 * 1000,
+              minInterval: getFrequencyMs(settings.notificationFrequency),
             });
           } catch {}
         }
@@ -129,7 +152,11 @@ export default function App() {
       if (notificationInterval.current) clearInterval(notificationInterval.current);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [phrases.length, settings.notificationsEnabled, settings.notificationFrequency]);
+  }, [settings.notificationsEnabled, settings.notificationFrequency, checkAndNotify, getFrequencyMs]);
+
+  useEffect(() => {
+    storeNotificationState();
+  }, [phrases]);
 
   useEffect(() => {
     const handleSWMessage = (event: MessageEvent) => {
