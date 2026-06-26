@@ -18,7 +18,7 @@ export function Stats() {
 
     // Overall counts (respecting filter)
     const totalPhrases = filteredPhrases.length;
-    const totalWords = filteredPhrases.reduce((acc, p) => p.russianPhrase.split(/\s+/).length === 1 ? acc + 1 : acc, 0);
+    const totalWords = filteredPhrases.reduce((acc, p) => p.nativePhrase.split(/\s+/).length === 1 ? acc + 1 : acc, 0);
     const totalSentences = totalPhrases - totalWords;
     
     // Per Language (always calculate from all phrases to show the options)

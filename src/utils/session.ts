@@ -1,8 +1,7 @@
 import type { Phrase, PracticeMode, ClozeData } from '../types';
 import { isDue, daysOverdue } from './sm2';
 
-const ALL_MODES: PracticeMode[] = ['listenChoose', 'listenRepeat', 'listenTranslate', 'audioCloze'];
-const NO_TYPING_MODES: PracticeMode[] = ['listenChoose', 'listenRepeat', 'audioCloze'];
+const ALL_MODES: PracticeMode[] = ['listenChoose', 'listenRepeat', 'audioCloze'];
 
 export interface SessionCard {
   phrase: Phrase;
@@ -14,7 +13,6 @@ export interface SessionCard {
 export function generateSession(
   allPhrases: Phrase[],
   count: number = 10,
-  noTyping: boolean = false,
 ): SessionCard[] {
   if (allPhrases.length === 0) return [];
 
@@ -31,10 +29,8 @@ export function generateSession(
     selected = [...due, ...notDue.slice(0, count - due.length)];
   }
 
-  const availableModes = noTyping ? NO_TYPING_MODES : ALL_MODES;
-
   return selected.map(phrase => {
-    const mode = availableModes[Math.floor(Math.random() * availableModes.length)];
+    const mode = ALL_MODES[Math.floor(Math.random() * ALL_MODES.length)];
     const card: SessionCard = { phrase, mode };
 
     if (mode === 'listenChoose' || mode === 'audioCloze') {
@@ -61,18 +57,18 @@ export function generateClozeData(phrase: Phrase, allPhrases: Phrase[]): ClozeDa
 }
 
 function generateCloze(phrase: Phrase, distractors: Phrase[]): ClozeData {
-  const words = phrase.russianPhrase.split(/\s+/).filter(w => w.length > 1);
+  const words = phrase.nativePhrase.split(/\s+/).filter(w => w.length > 1);
 
   if (words.length <= 1) {
-    const wrongOptions = distractors.slice(0, 3).map(d => d.russianPhrase);
+    const wrongOptions = distractors.slice(0, 3).map(d => d.nativePhrase);
     while (wrongOptions.length < 3) {
       wrongOptions.push(`вариант${wrongOptions.length + 1}`);
     }
     return {
-      fullPhrase: phrase.russianPhrase,
+      fullPhrase: phrase.nativePhrase,
       blankedPhrase: '___',
-      correctWord: phrase.russianPhrase,
-      options: shuffle([phrase.russianPhrase, ...wrongOptions]),
+      correctWord: phrase.nativePhrase,
+      options: shuffle([phrase.nativePhrase, ...wrongOptions]),
     };
   }
 
@@ -83,7 +79,7 @@ function generateCloze(phrase: Phrase, distractors: Phrase[]): ClozeData {
 
   const wrongWords = distractors
     .map(d => {
-      const dWords = d.russianPhrase.split(/\s+/).filter(w => w.length > 1);
+      const dWords = d.nativePhrase.split(/\s+/).filter(w => w.length > 1);
       return dWords[Math.floor(Math.random() * dWords.length)];
     })
     .filter(w => w !== correctWord && w.length > 0);
@@ -94,7 +90,7 @@ function generateCloze(phrase: Phrase, distractors: Phrase[]): ClozeData {
   }
 
   return {
-    fullPhrase: phrase.russianPhrase,
+    fullPhrase: phrase.nativePhrase,
     blankedPhrase: blankedWords.join(' '),
     correctWord,
     options: shuffle([correctWord, ...uniqueWrong]),

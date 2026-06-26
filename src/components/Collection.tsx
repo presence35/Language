@@ -37,7 +37,7 @@ export function Collection() {
   const playPhraseAudio = async (phrase: any) => {
     updatePhrase(phrase.id, { playCount: (phrase.playCount || 0) + 1 });
     setPlayingAudio(true);
-    await playAudioWithLang(phrase.russianPhrase, phrase.targetLang || 'ru');
+    await playAudioWithLang(phrase.nativePhrase, phrase.targetLang || 'ru');
     setPlayingAudio(false);
   };
 
@@ -59,9 +59,9 @@ export function Collection() {
   };
 
   const filteredAndSortedPhrases = phrases
-    .filter(p => p.russianPhrase.toLowerCase().includes(searchQuery.toLowerCase()) || p.englishPhrase.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter(p => p.nativePhrase.toLowerCase().includes(searchQuery.toLowerCase()) || p.translation.toLowerCase().includes(searchQuery.toLowerCase()))
     .filter(p => {
-      const isWord = p.russianPhrase.trim().split(/\s+/).length === 1;
+      const isWord = p.nativePhrase.trim().split(/\s+/).length === 1;
       if (filterType === 'phrase' && isWord) return false;
       if (filterType === 'word' && !isWord) return false;
       return true;
@@ -80,7 +80,7 @@ export function Collection() {
         return sortDirection === 'desc' ? b.dateAdded - a.dateAdded : a.dateAdded - b.dateAdded;
       }
       if (sortField === 'alphabetical') {
-        return sortDirection === 'asc' ? a.russianPhrase.localeCompare(b.russianPhrase) : b.russianPhrase.localeCompare(a.russianPhrase);
+        return sortDirection === 'asc' ? a.nativePhrase.localeCompare(b.nativePhrase) : b.nativePhrase.localeCompare(a.nativePhrase);
       }
       return 0;
     });
@@ -206,9 +206,9 @@ export function Collection() {
                 >
                   <p className="text-2xl font-semibold text-slate-100 leading-tight flex items-center gap-2">
                     <img src={LANGUAGE_FLAGS[phrase.targetLang || 'ru']} alt={phrase.targetLang} className="w-5 h-5 object-cover rounded shadow-sm opacity-90 shrink-0" />
-                    {phrase.russianPhrase}
+                    {phrase.nativePhrase}
                   </p>
-                  <p className="text-slate-400 font-medium mt-1">{phrase.englishPhrase}</p>
+                  <p className="text-slate-400 font-medium mt-1">{phrase.translation}</p>
                 </div>
                 <div className="flex flex-col items-center space-y-2 shrink-0">
                   <button onClick={(e) => { e.stopPropagation(); playPhraseAudio(phrase); }} disabled={playingAudio} className="text-indigo-400 p-2 bg-indigo-900/30 hover:bg-indigo-900/50 rounded-full transition-colors">

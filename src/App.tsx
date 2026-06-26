@@ -33,7 +33,7 @@ export default function App() {
       const cache = await caches.open('notification-state');
       const data = JSON.stringify({
         phrases: phrasesRef.current.map(p => ({
-          id: p.id, russianPhrase: p.russianPhrase, englishPhrase: p.englishPhrase,
+          id: p.id, nativePhrase: p.nativePhrase, translation: p.translation,
           difficultyScore: p.difficultyScore, dateAdded: p.dateAdded, targetLang: p.targetLang,
           easeFactor: p.easeFactor, intervalDays: p.intervalDays, repetitions: p.repetitions,
           nextReviewDate: p.nextReviewDate, lastReviewDate: p.lastReviewDate,
@@ -93,7 +93,7 @@ export default function App() {
     await storePendingIds(ids);
 
     const teasers = session.slice(0, Math.min(3, session.length));
-    const teaserText = teasers.map(ph => ph.russianPhrase).join(', ');
+    const teaserText = teasers.map(ph => ph.nativePhrase).join(', ');
     const title = 'Ready to practice?';
     const body = `Review words like: ${teaserText} — Tap to start a ${session.length}-word session!`;
 
@@ -193,7 +193,7 @@ export default function App() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="bg-slate-900 border-t border-slate-800 pb-safe z-50 shrink-0 sticky bottom-0">
+      <nav className="bg-slate-900 border-t border-slate-800 pb-safe z-50 shrink-0">
         <div className="flex justify-around items-center p-2">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;

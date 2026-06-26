@@ -10,8 +10,8 @@ const DEBUG = false;
 interface TranslationResult {
   id: string;
   transcription: string;
-  russianPhrase: string;
-  englishPhrase: string;
+  nativePhrase: string;
+  translation: string;
   sourceLanguage: 'en' | 'ru' | 'es';
   targetLanguage: 'en' | 'ru' | 'es';
   wordBreakdown: any[];
@@ -114,8 +114,8 @@ export function Capture() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
 
-  const getWordBreakdownLocal = async (russianPhrase: string, sl: string) => {
-    const cleanText = russianPhrase.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"«»’"']/g, "");
+  const getWordBreakdownLocal = async (nativePhrase: string, sl: string) => {
+    const cleanText = nativePhrase.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"«»'"]/g, "");
     const words = cleanText.split(/\s+/).map(w => w.trim()).filter(w => w.length > 0);
     const uniqueWords = Array.from(new Set(words));
     
@@ -156,21 +156,21 @@ export function Capture() {
       }
 
       const json = await response.json();
-      const translation = json[0].map((item: any) => item[0]).join('').trim();
+      const translationResult = json[0].map((item: any) => item[0]).join('').trim();
 
-      const ruPhrase = sl === 'en' ? translation : text;
-      const enPhrase = sl === 'en' ? text : translation;
+      const nativePhrase = sl === 'en' ? translationResult : text;
+      const translation = sl === 'en' ? text : translationResult;
 
-      debugLog(`Translation done ru="${ruPhrase}" en="${enPhrase}"`);
+      debugLog(`Translation done native="${nativePhrase}" translation="${translation}"`);
 
-      const breakdown = await getWordBreakdownLocal(ruPhrase, sl === 'en' ? tl : sl);
+      const breakdown = await getWordBreakdownLocal(nativePhrase, sl === 'en' ? tl : sl);
 
       const newId = Date.now().toString();
       const newResult: TranslationResult = {
         id: newId,
         transcription: text,
-        russianPhrase: ruPhrase,
-        englishPhrase: enPhrase,
+        nativePhrase,
+        translation,
         sourceLanguage: sl,
         targetLanguage: tl as 'en' | 'ru' | 'es',
         wordBreakdown: breakdown,
@@ -184,8 +184,8 @@ export function Capture() {
       setHistoryIndex(0);
       setIsHistoryVisible(true);
 
-      debugLog(`Playing TTS… "${ruPhrase}" (${sl})`);
-      await playAudioWithLang(ruPhrase, sl);
+      debugLog(`Playing TTS… "${nativePhrase}" (${sl})`);
+      await playAudioWithLang(nativePhrase, sl);
       debugLog(`TTS done`);
     } catch (e: any) {
       console.error(e);
@@ -213,22 +213,22 @@ export function Capture() {
       const response = await fetch(url);
       if (!response.ok) throw new Error("Translation failed");
       const json = await response.json();
-      const translation = json[0].map((item: any) => item[0]).join('').trim();
+      const translationResult = json[0].map((item: any) => item[0]).join('').trim();
 
-      const ruPhrase = sl === 'en' ? translation : text;
-      const enPhrase = sl === 'en' ? text : translation;
+      const nativePhrase = sl === 'en' ? translationResult : text;
+      const translation = sl === 'en' ? text : translationResult;
 
-      debugLog(`Getting word breakdown for: "${ruPhrase}"`);
+      debugLog(`Getting word breakdown for: "${nativePhrase}"`);
       let breakdown: any[] = [];
       try {
-        breakdown = await getWordBreakdownLocal(ruPhrase, sl === 'en' ? tl : sl);
+        breakdown = await getWordBreakdownLocal(nativePhrase, sl === 'en' ? tl : sl);
       } catch (e) {}
 
       const newResult: TranslationResult = {
         id: Date.now().toString(),
         transcription: text,
-        russianPhrase: ruPhrase,
-        englishPhrase: enPhrase,
+        nativePhrase,
+        translation,
         sourceLanguage: sl as 'en' | 'ru' | 'es',
         targetLanguage: tl as 'en' | 'ru' | 'es',
         wordBreakdown: breakdown,
@@ -244,9 +244,9 @@ export function Capture() {
       setHistoryIndex(0);
       setIsHistoryVisible(true);
 
-      debugLog(`Playing TTS… "${ruPhrase}" (${sl})`);
+      debugLog(`Playing TTS… "${nativePhrase}" (${sl})`);
       try {
-        await playAudioWithLang(ruPhrase, sl === 'en' ? tl : sl);
+        await playAudioWithLang(nativePhrase, sl === 'en' ? tl : sl);
       } catch (e) {}
       debugLog('Done');
     } catch (err: any) {
@@ -444,8 +444,8 @@ export function Capture() {
 
   const handleSave = (res: TranslationResult) => {
     addPhrase({
-      russianPhrase: res.russianPhrase,
-      englishPhrase: res.englishPhrase,
+      nativePhrase: res.nativePhrase,
+      translation: res.translation,
       wordBreakdown: res.wordBreakdown || [],
       categories: ['Kids Zone'],
       targetLang: res.sourceLanguage === 'en' ? settings.defaultTargetLanguage : res.sourceLanguage,
@@ -455,8 +455,8 @@ export function Capture() {
 
   const handleSaveWord = (item: any, idx: number, res: TranslationResult) => {
     addPhrase({
-      russianPhrase: item.word,
-      englishPhrase: item.translation,
+      nativePhrase: item.word,
+      translation: item.translation,
       wordBreakdown: [{ word: item.word, translation: item.translation }],
       categories: ['Kids Zone'],
       targetLang: res.sourceLanguage === 'en' ? settings.defaultTargetLanguage : res.sourceLanguage,
@@ -599,7 +599,7 @@ export function Capture() {
                       </div>
                       
                       {res.sourceLanguage === 'ru' ? (
-                         <p className={`text-2xl sm:text-3xl font-black leading-tight w-full pointer-events-auto ${isHistorical ? 'text-slate-300' : 'text-slate-100'}`}>{res.russianPhrase}</p>
+                         <p className={`text-2xl sm:text-3xl font-black leading-tight w-full pointer-events-auto ${isHistorical ? 'text-slate-300' : 'text-slate-100'}`}>{res.nativePhrase}</p>
                       ) : (
                          <p className={`text-lg italic font-medium w-full pointer-events-auto ${isHistorical ? 'text-slate-400' : 'text-indigo-200'}`}>"{res.transcription}"</p>
                       )}
@@ -607,7 +607,7 @@ export function Capture() {
 
                     {res.sourceLanguage === 'ru' ? (
                       <div 
-                        onClick={() => { if (!playingAudio) playAudio(res.englishPhrase, 'en'); }}
+                        onClick={() => { if (!playingAudio) playAudio(res.translation, 'en'); }}
                         className={`pt-4 border-t cursor-pointer ${isHistorical ? 'border-slate-700/50' : 'border-indigo-500/20'} pointer-events-auto`}
                       >
                           <div className={`flex items-center gap-2 font-extrabold text-xs uppercase tracking-wider mb-1 ${isHistorical ? 'text-slate-500' : 'text-indigo-400'}`}>
@@ -616,12 +616,12 @@ export function Capture() {
                             <Volume2 className="w-4 h-4 shrink-0 opacity-80" />
                           </div>
                           <div className="flex items-center justify-start gap-3">
-                            <p className={`text-xl sm:text-2xl font-bold leading-tight flex-1 ${isHistorical ? 'text-slate-300' : 'text-slate-100'}`}>{res.englishPhrase}</p>
+                            <p className={`text-xl sm:text-2xl font-bold leading-tight flex-1 ${isHistorical ? 'text-slate-300' : 'text-slate-100'}`}>{res.translation}</p>
                           </div>
                       </div>
                     ) : (
                       <div 
-                        onClick={() => { if (!playingAudio) playAudio(res.russianPhrase, res.targetLanguage); }}
+                        onClick={() => { if (!playingAudio) playAudio(res.nativePhrase, res.targetLanguage); }}
                         className={`pt-4 border-t cursor-pointer ${isHistorical ? 'border-slate-700/50' : 'border-indigo-500/20'} pointer-events-auto`}
                       >
                           <div className={`flex items-center gap-2 font-extrabold text-xs uppercase tracking-wider mb-1 ${isHistorical ? 'text-slate-500' : 'text-indigo-400'}`}>
@@ -630,7 +630,7 @@ export function Capture() {
                             <Volume2 className="w-4 h-4 shrink-0 opacity-80" />
                           </div>
                          <div className="flex justify-start items-center gap-3">
-                            <p className={`text-2xl sm:text-3xl font-black leading-tight flex-1 ${isHistorical ? 'text-slate-300' : 'text-slate-100'}`}>{res.russianPhrase}</p>
+                            <p className={`text-2xl sm:text-3xl font-black leading-tight flex-1 ${isHistorical ? 'text-slate-300' : 'text-slate-100'}`}>{res.nativePhrase}</p>
                           </div>
                       </div>
                     )}
@@ -648,7 +648,7 @@ export function Capture() {
                           <Trash2 className="w-5 h-5" />
                         </button>
 
-                        {!phrases?.some(p => p.russianPhrase.toLowerCase() === res.russianPhrase.toLowerCase()) ? (
+                        {!phrases?.some(p => p.nativePhrase.toLowerCase() === res.nativePhrase.toLowerCase()) ? (
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleSave(res); }} 
                             disabled={savedSuccess}
@@ -696,7 +696,7 @@ export function Capture() {
                       <div className={`pt-3 border-t ${isHistorical ? 'border-slate-800/50' : 'border-slate-800'}`}>
                         <div className="flex flex-col gap-2">
                           {res.wordBreakdown.map((item: any, idx: number) => {
-                            const isSaved = savedWords[`${res.id}_${idx}`] || phrases?.some(p => p.russianPhrase.toLowerCase() === item.word.toLowerCase());
+                            const isSaved = savedWords[`${res.id}_${idx}`] || phrases?.some(p => p.nativePhrase.toLowerCase() === item.word.toLowerCase());
                             return (
                             <div 
                               key={idx} 
@@ -842,20 +842,20 @@ export function Capture() {
                   <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex justify-between items-center shadow-sm w-full gap-3">
                     <div 
                       className="flex-1 cursor-pointer flex flex-col gap-1"
-                      onClick={() => playAudio(phrase.russianPhrase, phrase.targetLang || 'ru')}
+                      onClick={() => playAudio(phrase.nativePhrase, phrase.targetLang || 'ru')}
                     >
                       <div className="flex items-center gap-2">
                         <img src={LANGUAGE_FLAGS[phrase.targetLang || 'ru']} alt={phrase.targetLang} className="w-3.5 h-3.5 object-cover rounded shadow-sm opacity-80" />
-                        <p className="text-lg font-bold text-slate-100">{phrase.russianPhrase}</p>
+                        <p className="text-lg font-bold text-slate-100">{phrase.nativePhrase}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <img src={LANGUAGE_FLAGS['en']} alt="en" className="w-3.5 h-3.5 object-cover rounded shadow-sm opacity-60" />
-                        <p className="text-sm text-slate-400 font-medium">{phrase.englishPhrase}</p>
+                        <p className="text-sm text-slate-400 font-medium">{phrase.translation}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button 
-                        onClick={() => playAudio(phrase.russianPhrase, phrase.targetLang || 'ru')} 
+                        onClick={() => playAudio(phrase.nativePhrase, phrase.targetLang || 'ru')} 
                         disabled={playingAudio} 
                         className="text-indigo-400 p-2.5 bg-indigo-900/30 hover:bg-indigo-900/50 rounded-full transition-colors pointer-events-auto outline-none active:scale-95"
                       >

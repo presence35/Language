@@ -5,8 +5,8 @@ export interface WordBreakdown {
 
 export interface Phrase {
   id: string;
-  russianPhrase: string;
-  englishPhrase: string;
+  nativePhrase: string;
+  translation: string;
   wordBreakdown: WordBreakdown[];
   dateAdded: number;
   difficultyScore: number;
@@ -21,7 +21,7 @@ export interface Phrase {
   lastReviewDate: number;
 }
 
-export type PracticeMode = 'listenChoose' | 'listenRepeat' | 'listenTranslate' | 'audioCloze';
+export type PracticeMode = 'listenChoose' | 'listenRepeat' | 'audioCloze';
 
 export interface ClozeData {
   fullPhrase: string;

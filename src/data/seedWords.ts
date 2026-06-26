@@ -3,11 +3,11 @@ import { defaultSM2Fields } from '../utils/sm2';
 
 const now = Date.now();
 
-function seed(id: number, russianPhrase: string, englishPhrase: string, wordBreakdown: { word: string; translation: string }[], categories: string[]): Phrase {
+function seed(id: number, nativePhrase: string, translation: string, wordBreakdown: { word: string; translation: string }[], categories: string[]): Phrase {
   return {
     id: `seed_${id}`,
-    russianPhrase,
-    englishPhrase,
+    nativePhrase,
+    translation,
     wordBreakdown,
     dateAdded: now,
     difficultyScore: 50,

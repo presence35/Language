@@ -108,7 +108,7 @@ async function handlePeriodicCheck() {
   cache.put('/pending-practice-ids', new Response(JSON.stringify(ids), { headers: { 'Content-Type': 'application/json' } }));
 
   const teasers = session.slice(0, Math.min(3, session.length));
-  const teaserText = teasers.map((p: any) => p.russianPhrase).join(', ');
+  const teaserText = teasers.map((p: any) => p.nativePhrase).join(', ');
   const title = 'Ready to practice?';
   const body = `Review words like: ${teaserText} — Tap to start a ${session.length}-word session!`;
 

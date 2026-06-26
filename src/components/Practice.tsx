@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStorage } from '../hooks/useStorage';
-import { PlayCircle, CheckCircle, XCircle, Zap, Mic, MicOff, Keyboard, KeyboardOff, Volume2, Eye } from 'lucide-react';
+import { PlayCircle, CheckCircle, XCircle, Zap, Mic, MicOff, Volume2, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playAudioWithLang, stopAllAudio } from '../utils/audio';
 import { generateSession, SessionCard, generateClozeData } from '../utils/session';
@@ -13,13 +13,10 @@ export function Practice() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [sessionStartTime, setSessionStartTime] = useState<number>(Date.now());
   const [sessionTracked, setSessionTracked] = useState(true);
-  const [noTyping, setNoTyping] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [answerRevealed, setAnswerRevealed] = useState(false);
-  const [typedAnswer, setTypedAnswer] = useState('');
-  const [translateSubmitted, setTranslateSubmitted] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [pronunciationResult, setPronunciationResult] = useState<'success' | 'fail' | null>(null);
   const [spokenText, setSpokenText] = useState('');
@@ -32,9 +29,9 @@ export function Practice() {
     return () => clearInterval(t);
   }, []);
 
-  const newSession = useCallback((noType: boolean) => {
+  const newSession = useCallback(() => {
     stopAllAudio();
-    setSessionCards(generateSession(phrases, 10, noType));
+    setSessionCards(generateSession(phrases, 10));
     setCurrentIndex(0);
     setSessionStartTime(Date.now());
     setSessionTracked(false);
@@ -44,8 +41,6 @@ export function Practice() {
   const resetCardState = () => {
     setSelectedAnswer(null);
     setAnswerRevealed(false);
-    setTypedAnswer('');
-    setTranslateSubmitted(false);
     setIsListening(false);
     setPronunciationResult(null);
     setSpokenText('');
@@ -87,7 +82,7 @@ export function Practice() {
           }
         }
       } catch {}
-      newSession(noTyping);
+      newSession();
     }
   }, [phrases, sessionCards.length]);
 
@@ -97,7 +92,7 @@ export function Practice() {
   const playCardAudio = async () => {
     if (!currentPhrase) return;
     updatePhrase(currentPhrase.id, { playCount: (currentPhrase.playCount || 0) + 1 });
-    await playAudioWithLang(currentPhrase.russianPhrase, currentPhrase.targetLang || 'ru');
+    await playAudioWithLang(currentPhrase.nativePhrase, currentPhrase.targetLang || 'ru');
     setAudioPlayed(true);
   };
 
@@ -131,19 +126,7 @@ export function Practice() {
   };
 
   const handleChooseNext = () => {
-    const isCorrect = selectedAnswer === currentPhrase.englishPhrase;
-    finishCard(isCorrect ? 4 : 1);
-  };
-
-  const handleTranslateSubmit = () => {
-    if (translateSubmitted) return;
-    setTranslateSubmitted(true);
-  };
-
-  const handleTranslateNext = () => {
-    const cleanTyped = typedAnswer.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, '').trim();
-    const cleanTarget = currentPhrase.englishPhrase.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, '').trim();
-    const isCorrect = cleanTyped === cleanTarget || (cleanTyped.length > 3 && cleanTarget.includes(cleanTyped));
+    const isCorrect = selectedAnswer === currentPhrase.translation;
     finishCard(isCorrect ? 4 : 1);
   };
 
@@ -189,7 +172,7 @@ export function Practice() {
       const transcript = event.results[0][0].transcript.toLowerCase();
       setSpokenText(transcript);
       const cleanTranscript = transcript.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, '').trim();
-      const cleanTarget = currentPhrase.russianPhrase.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, '').trim();
+      const cleanTarget = currentPhrase.nativePhrase.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, '').trim();
       if (cleanTranscript === cleanTarget) {
         setPronunciationResult('success');
       } else {
@@ -252,7 +235,7 @@ export function Practice() {
         </div>
         <h2 className="text-3xl font-bold font-sans tracking-tight text-slate-100">Session Complete!</h2>
         <p className="text-slate-400 text-center">Great job. Your phrases are now scheduled for optimal review.</p>
-        <button onClick={() => newSession(noTyping)} className="mt-8 bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 px-8 rounded-full shadow-lg transition-colors">
+        <button onClick={() => newSession()} className="mt-8 bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 px-8 rounded-full shadow-lg transition-colors">
           Start New Session
         </button>
       </div>
@@ -262,7 +245,6 @@ export function Practice() {
   const modeLabel = {
     listenChoose: 'Listen & Choose',
     listenRepeat: 'Listen & Repeat',
-    listenTranslate: 'Listen & Translate',
     audioCloze: 'Fill the Gap',
   }[currentCard.mode];
 
@@ -274,29 +256,6 @@ export function Practice() {
           <p className="text-slate-400 text-sm mt-1">{nextSessionNote || 'Spaced Repetition'}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              const next = !noTyping;
-              setNoTyping(next);
-              const remaining = sessionCards.slice(currentIndex);
-              const nonTypingModes: Array<'listenChoose' | 'listenRepeat' | 'audioCloze'> = ['listenChoose', 'listenRepeat', 'audioCloze'];
-              const updated = remaining.map(card =>
-                card.mode === 'listenTranslate'
-                  ? { ...card, mode: nonTypingModes[Math.floor(Math.random() * nonTypingModes.length)] as any }
-                  : card
-              );
-              setSessionCards(prev => [...prev.slice(0, currentIndex), ...updated]);
-            }}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${
-              noTyping
-                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                : 'bg-slate-800/50 text-slate-500 border border-slate-700/30 hover:text-slate-400'
-            }`}
-            title={noTyping ? 'Typing disabled for this session' : 'Typing enabled — tap to disable'}
-          >
-            {noTyping ? <KeyboardOff className="w-3.5 h-3.5" /> : <Keyboard className="w-3.5 h-3.5" />}
-            <span>{noTyping ? 'No typing' : 'Typing'}</span>
-          </button>
           <div className="text-sm font-bold text-slate-400 bg-slate-800 px-3 py-1.5 rounded-full">
             {currentIndex + 1} / {sessionCards.length}
           </div>
@@ -311,7 +270,15 @@ export function Practice() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: -100, scale: 0.9 }}
             transition={{ duration: 0.2 }}
-            className="border text-center p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col justify-center gap-4 sm:gap-5 bg-slate-900 border-slate-800 w-full"
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.7}
+            onDragEnd={(_, info) => {
+              if (info.offset.x < -100) {
+                finishCard(0);
+              }
+            }}
+            className="border text-center p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col justify-center gap-4 sm:gap-5 bg-slate-900 border-slate-800 w-full cursor-grab active:cursor-grabbing"
           >
             <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
               {modeLabel}
@@ -339,19 +306,6 @@ export function Practice() {
                 spokenText={spokenText}
                 onToggleRepeat={toggleRepeat}
                 onNext={() => finishCard(pronunciationResult === 'success' ? 5 : 2)}
-              />
-            )}
-
-            {currentCard.mode === 'listenTranslate' && (
-              <ListenTranslate
-                card={currentCard}
-                audioPlayed={audioPlayed}
-                onPlayAudio={playCardAudio}
-                typedAnswer={typedAnswer}
-                onTypedChange={setTypedAnswer}
-                translateSubmitted={translateSubmitted}
-                onSubmit={handleTranslateSubmit}
-                onNext={handleTranslateNext}
               />
             )}
 
@@ -383,8 +337,8 @@ function ListenChoose({ card, audioPlayed, onPlayAudio, selectedAnswer, answerRe
   onNext: () => void;
 }) {
   const options = card.distractors
-    ? [card.phrase.englishPhrase, ...card.distractors.map(d => d.englishPhrase)].slice(0, 4)
-    : [card.phrase.englishPhrase];
+    ? [card.phrase.translation, ...card.distractors.map(d => d.translation)].slice(0, 4)
+    : [card.phrase.translation];
 
   const shuffled = React.useMemo(() => {
     const a = [...options];
@@ -397,14 +351,17 @@ function ListenChoose({ card, audioPlayed, onPlayAudio, selectedAnswer, answerRe
 
   return (
     <>
-      <button onClick={onPlayAudio} className="p-5 mx-auto rounded-full transition-transform active:scale-95 flex flex-col items-center border shadow-inner text-indigo-400 bg-indigo-900/30 hover:bg-indigo-900/50 border-indigo-500/20">
-        <PlayCircle className="w-12 h-12 mb-1" />
-        <span className="text-xs font-bold tracking-wider">PLAY</span>
-      </button>
+      <div className="flex flex-col gap-2">
+        <p className="text-3xl font-extrabold text-slate-100 leading-tight">{card.phrase.nativePhrase}</p>
+        <button onClick={onPlayAudio} className="p-4 mx-auto rounded-full transition-transform active:scale-95 flex flex-col items-center border shadow-inner text-indigo-400 bg-indigo-900/30 hover:bg-indigo-900/50 border-indigo-500/20">
+          <PlayCircle className="w-10 h-10 mb-1" />
+          <span className="text-xs font-bold tracking-wider">PLAY</span>
+        </button>
+      </div>
 
       <div className="flex flex-col gap-3 w-full">
         {shuffled.map((option, i) => {
-          const isCorrect = option === card.phrase.englishPhrase;
+          const isCorrect = option === card.phrase.translation;
           const isSelected = selectedAnswer === option;
           let style = 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700';
           if (answerRevealed) {
@@ -446,7 +403,9 @@ function ListenRepeat({ card, audioPlayed, onPlayAudio, isListening, pronunciati
 }) {
   return (
     <>
-      <p className="text-3xl font-extrabold text-slate-100 leading-tight">{card.phrase.russianPhrase}</p>
+      <div className="flex flex-col gap-2">
+        <p className="text-3xl font-extrabold text-slate-100 leading-tight">{card.phrase.nativePhrase}</p>
+      </div>
 
       <div className="flex justify-center gap-4">
         <button onClick={onPlayAudio} className="p-5 rounded-full transition-transform active:scale-95 flex flex-col items-center border shadow-inner text-indigo-400 bg-indigo-900/30 hover:bg-indigo-900/50 border-indigo-500/20">
@@ -471,84 +430,25 @@ function ListenRepeat({ card, audioPlayed, onPlayAudio, isListening, pronunciati
       </div>
 
       {(spokenText || pronunciationResult) && (
-        <div className={`p-4 rounded-2xl border text-sm animate-in fade-in slide-in-from-bottom-2 ${
-          pronunciationResult === 'success' ? 'bg-emerald-900/20 border-emerald-500/30 text-emerald-300'
-          : pronunciationResult === 'fail' ? 'bg-red-900/20 border-red-500/30 text-red-300'
-          : 'bg-slate-800/50 border-slate-700 text-slate-300'
+        <div className={`flex items-center justify-center gap-3 py-3 px-4 rounded-2xl border animate-in fade-in slide-in-from-bottom-2 ${
+          pronunciationResult === 'success' ? 'bg-emerald-900/20 border-emerald-500/30'
+          : pronunciationResult === 'fail' ? 'bg-red-900/20 border-red-500/30'
+          : 'bg-slate-800/50 border-slate-700'
         }`}>
-          <div className="font-bold flex items-center justify-center gap-2 mb-1">
-            {pronunciationResult === 'success' && <CheckCircle className="w-4 h-4" />}
-            {pronunciationResult === 'fail' && <XCircle className="w-4 h-4" />}
-            {pronunciationResult === 'success' ? 'Well pronounced!' : pronunciationResult === 'fail' ? 'Needs work' : 'Listening...'}
-          </div>
-          {spokenText && <div className="italic break-words">"{spokenText}"</div>}
+          {pronunciationResult === 'success' && <CheckCircle className="w-8 h-8 text-emerald-400" />}
+          {pronunciationResult === 'fail' && <XCircle className="w-8 h-8 text-red-400" />}
+          {!pronunciationResult && <div className="w-8 h-8" />}
+          <p className="text-xl font-bold text-slate-100">{card.phrase.nativePhrase}</p>
         </div>
       )}
 
       {pronunciationResult && (
-        <button onClick={onNext} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-2xl transition-colors mt-2">
-          Continue
-        </button>
-      )}
-    </>
-  );
-}
-
-function ListenTranslate({ card, audioPlayed, onPlayAudio, typedAnswer, onTypedChange, translateSubmitted, onSubmit, onNext }: {
-  card: SessionCard;
-  audioPlayed: boolean;
-  onPlayAudio: () => void;
-  typedAnswer: string;
-  onTypedChange: (v: string) => void;
-  translateSubmitted: boolean;
-  onSubmit: () => void;
-  onNext: () => void;
-}) {
-  const cleanTyped = typedAnswer.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, '').trim();
-  const cleanTarget = card.phrase.englishPhrase.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, '').trim();
-  const isCorrect = translateSubmitted && (cleanTyped === cleanTarget || (cleanTyped.length > 3 && cleanTarget.includes(cleanTyped)));
-
-  return (
-    <>
-      <button onClick={onPlayAudio} className="p-5 mx-auto rounded-full transition-transform active:scale-95 flex flex-col items-center border shadow-inner text-indigo-400 bg-indigo-900/30 hover:bg-indigo-900/50 border-indigo-500/20">
-        <PlayCircle className="w-12 h-12 mb-1" />
-        <span className="text-xs font-bold tracking-wider">PLAY</span>
-      </button>
-
-      <p className="text-lg font-bold text-slate-300">{card.phrase.russianPhrase}</p>
-
-      <input
-        type="text"
-        value={typedAnswer}
-        onChange={e => onTypedChange(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter' && typedAnswer.trim() && !translateSubmitted) onSubmit(); }}
-        disabled={translateSubmitted}
-        placeholder="Type the English translation..."
-        className="w-full px-4 py-3 border border-slate-700 rounded-2xl bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-center text-lg"
-        autoFocus
-      />
-
-      {!translateSubmitted ? (
-        <button
-          onClick={onSubmit}
-          disabled={!typedAnswer.trim()}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white font-bold p-4 rounded-2xl transition-colors"
-        >
-          Check
-        </button>
-      ) : (
-        <>
-          <div className={`p-4 rounded-2xl border text-sm ${isCorrect ? 'bg-emerald-900/20 border-emerald-500/30 text-emerald-300' : 'bg-red-900/20 border-red-500/30 text-red-300'}`}>
-            <div className="font-bold flex items-center justify-center gap-2 mb-1">
-              {isCorrect ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-              {isCorrect ? 'Correct!' : 'Not quite'}
-            </div>
-            {!isCorrect && <div className="text-base font-medium mt-1">"{card.phrase.englishPhrase}"</div>}
-          </div>
-          <button onClick={onNext} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-2xl transition-colors">
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-lg text-slate-400">{card.phrase.translation}</p>
+          <button onClick={onNext} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-2xl transition-colors mt-2">
             Continue
           </button>
-        </>
+        </div>
       )}
     </>
   );
@@ -567,7 +467,8 @@ function AudioCloze({ card, audioPlayed, onPlayAudio, selectedAnswer, answerReve
   if (!cloze) {
     return (
       <>
-        <p className="text-2xl sm:text-3xl font-extrabold text-slate-100 leading-tight">{card.phrase.russianPhrase}</p>
+        <p className="text-2xl sm:text-3xl font-extrabold text-slate-100 leading-tight">{card.phrase.nativePhrase}</p>
+        <p className="text-lg text-slate-400">{card.phrase.translation}</p>
         <button onClick={onNext} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-2xl transition-colors mt-2">
           Skip
         </button>
@@ -582,25 +483,28 @@ function AudioCloze({ card, audioPlayed, onPlayAudio, selectedAnswer, answerReve
         <span className="text-xs font-bold tracking-wider">PLAY</span>
       </button>
 
-      <p className="text-2xl sm:text-3xl font-extrabold text-slate-100 leading-tight">
-        {cloze.blankedPhrase.split(' ').map((word, i) => (
-          <span key={i}>
-            {word === '___' ? (
-              <span className={`inline-block min-w-[3ch] border-b-2 px-1 ${
-                answerRevealed
-                  ? selectedAnswer === cloze.correctWord
-                    ? 'border-emerald-500 text-emerald-300'
-                    : 'border-red-500 text-red-300'
-                  : 'border-indigo-500 text-indigo-300'
-              }`}>
-                {answerRevealed ? cloze.correctWord : (selectedAnswer || '___')}
-              </span>
-            ) : (
-              <>{word} </>
-            )}
-          </span>
-        ))}
-      </p>
+      <div className="flex flex-col gap-3">
+        <p className="text-2xl sm:text-3xl font-extrabold text-slate-100 leading-tight">
+          {cloze.blankedPhrase.split(' ').map((word, i) => (
+            <span key={i}>
+              {word === '___' ? (
+                <span className={`inline-block min-w-[3ch] border-b-2 px-1 ${
+                  answerRevealed
+                    ? selectedAnswer === cloze.correctWord
+                      ? 'border-emerald-500 text-emerald-300'
+                      : 'border-red-500 text-red-300'
+                    : 'border-indigo-500 text-indigo-300'
+                }`}>
+                  {answerRevealed ? cloze.correctWord : (selectedAnswer || '\u00A0')}
+                </span>
+              ) : (
+                <>{word} </>
+              )}
+            </span>
+          ))}
+        </p>
+        {answerRevealed && <p className="text-lg text-slate-400">{card.phrase.translation}</p>}
+      </div>
 
       <div className="grid grid-cols-2 gap-3 w-full">
         {cloze.options.map((option, i) => {

@@ -30,8 +30,8 @@ export function useStorage() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const storedPhrases = localStorage.getItem('russian_phrases');
-    const storedFailures = localStorage.getItem('russian_failures');
+    const storedPhrases = localStorage.getItem('phrases') || localStorage.getItem('russian_phrases');
+    const storedFailures = localStorage.getItem('communication_failures') || localStorage.getItem('russian_failures');
     const storedSettings = localStorage.getItem('app_settings');
     const storedStats = localStorage.getItem('practice_stats');
     
@@ -49,14 +49,27 @@ export function useStorage() {
 
     let migrated = false;
     loadedPhrases = loadedPhrases.map(p => {
-      if (p.easeFactor === undefined || p.easeFactor === null) {
+      let updated = p;
+      const raw = p as any;
+      if (raw.russianPhrase !== undefined || raw.englishPhrase !== undefined) {
         migrated = true;
-        return { ...p, ...defaultSM2Fields(p.dateAdded) };
+        updated = {
+          ...updated,
+          nativePhrase: raw.russianPhrase || updated.nativePhrase || '',
+          translation: raw.englishPhrase || updated.translation || '',
+        };
+        delete raw.russianPhrase;
+        delete raw.englishPhrase;
       }
-      return p;
+      if (updated.easeFactor === undefined || updated.easeFactor === null) {
+        migrated = true;
+        return { ...updated, ...defaultSM2Fields(updated.dateAdded) };
+      }
+      return updated;
     });
     if (migrated) {
-      localStorage.setItem('russian_phrases', JSON.stringify(loadedPhrases));
+      localStorage.setItem('phrases', JSON.stringify(loadedPhrases));
+      localStorage.removeItem('russian_phrases');
     }
 
     setPhrases(loadedPhrases);
@@ -78,13 +91,13 @@ export function useStorage() {
 
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem('russian_phrases', JSON.stringify(phrases));
+      localStorage.setItem('phrases', JSON.stringify(phrases));
     }
   }, [phrases, isLoaded]);
 
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem('russian_failures', JSON.stringify(failures));
+      localStorage.setItem('communication_failures', JSON.stringify(failures));
     }
   }, [failures, isLoaded]);
 
@@ -138,10 +151,9 @@ export function useStorage() {
   };
 
   const importData = (importedPhrases: Phrase[]) => {
-    // Basic deduplication by phrase text
     setPhrases(prev => {
-      const existingTexts = new Set(prev.map(p => p.russianPhrase?.toLowerCase() || ''));
-      const newUnique = importedPhrases.filter(p => !existingTexts.has(p.russianPhrase?.toLowerCase() || ''));
+      const existingTexts = new Set(prev.map(p => p.nativePhrase?.toLowerCase() || ''));
+      const newUnique = importedPhrases.filter(p => !existingTexts.has(p.nativePhrase?.toLowerCase() || ''));
       return [...newUnique, ...prev];
     });
   };
