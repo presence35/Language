@@ -3,7 +3,7 @@ import { useStorage } from '../hooks/useStorage';
 import { PlayCircle, CheckCircle, XCircle, Zap, Mic, MicOff, Keyboard, KeyboardOff, Volume2, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playAudioWithLang, stopAllAudio } from '../utils/audio';
-import { generateSession, SessionCard } from '../utils/session';
+import { generateSession, SessionCard, generateClozeData } from '../utils/session';
 import { sm2Review } from '../utils/sm2';
 import type { Phrase } from '../types';
 
@@ -66,10 +66,19 @@ export function Practice() {
           if (Array.isArray(ids) && ids.length > 0) {
             const matched = phrases.filter(p => ids.includes(p.id));
             if (matched.length > 0) {
-              const cards: SessionCard[] = matched.map(phrase => ({
-                phrase,
-                mode: (['listenChoose', 'listenRepeat', 'audioCloze'] as const)[Math.floor(Math.random() * 3)],
-              }));
+              const modes: Array<'listenChoose' | 'listenRepeat' | 'audioCloze'> = ['listenChoose', 'listenRepeat', 'audioCloze'];
+              const cards: SessionCard[] = matched.map(phrase => {
+                const mode = modes[Math.floor(Math.random() * modes.length)];
+                const card: SessionCard = { phrase, mode };
+                const distractors = phrases.filter(p => p.id !== phrase.id).sort(() => Math.random() - 0.5).slice(0, 3);
+                if (mode === 'listenChoose') {
+                  card.distractors = distractors;
+                } else if (mode === 'audioCloze') {
+                  card.distractors = distractors;
+                  card.clozeData = generateClozeData(phrase, phrases);
+                }
+                return card;
+              });
               setSessionCards(cards);
               setSessionStartTime(Date.now());
               setSessionTracked(false);
@@ -437,6 +446,8 @@ function ListenRepeat({ card, audioPlayed, onPlayAudio, isListening, pronunciati
 }) {
   return (
     <>
+      <p className="text-3xl font-extrabold text-slate-100 leading-tight">{card.phrase.russianPhrase}</p>
+
       <div className="flex justify-center gap-4">
         <button onClick={onPlayAudio} className="p-5 rounded-full transition-transform active:scale-95 flex flex-col items-center border shadow-inner text-indigo-400 bg-indigo-900/30 hover:bg-indigo-900/50 border-indigo-500/20">
           <PlayCircle className="w-10 h-10 mb-1" />
@@ -471,7 +482,6 @@ function ListenRepeat({ card, audioPlayed, onPlayAudio, isListening, pronunciati
             {pronunciationResult === 'success' ? 'Well pronounced!' : pronunciationResult === 'fail' ? 'Needs work' : 'Listening...'}
           </div>
           {spokenText && <div className="italic break-words">"{spokenText}"</div>}
-          <div className="mt-2 pt-2 border-t border-current/20 text-base font-bold">{card.phrase.russianPhrase}</div>
         </div>
       )}
 
@@ -554,7 +564,16 @@ function AudioCloze({ card, audioPlayed, onPlayAudio, selectedAnswer, answerReve
   onNext: () => void;
 }) {
   const cloze = card.clozeData;
-  if (!cloze) return null;
+  if (!cloze) {
+    return (
+      <>
+        <p className="text-2xl sm:text-3xl font-extrabold text-slate-100 leading-tight">{card.phrase.russianPhrase}</p>
+        <button onClick={onNext} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-2xl transition-colors mt-2">
+          Skip
+        </button>
+      </>
+    );
+  }
 
   return (
     <>

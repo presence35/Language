@@ -55,15 +55,24 @@ function getDistractors(target: Phrase, allPhrases: Phrase[], count: number): Ph
   return shuffled.slice(0, count);
 }
 
+export function generateClozeData(phrase: Phrase, allPhrases: Phrase[]): ClozeData {
+  const distractors = getDistractors(phrase, allPhrases, 3);
+  return generateCloze(phrase, distractors);
+}
+
 function generateCloze(phrase: Phrase, distractors: Phrase[]): ClozeData {
   const words = phrase.russianPhrase.split(/\s+/).filter(w => w.length > 1);
 
   if (words.length <= 1) {
+    const wrongOptions = distractors.slice(0, 3).map(d => d.russianPhrase);
+    while (wrongOptions.length < 3) {
+      wrongOptions.push(`вариант${wrongOptions.length + 1}`);
+    }
     return {
       fullPhrase: phrase.russianPhrase,
       blankedPhrase: '___',
       correctWord: phrase.russianPhrase,
-      options: shuffle([phrase.russianPhrase, ...distractors.slice(0, 3).map(d => d.russianPhrase)]),
+      options: shuffle([phrase.russianPhrase, ...wrongOptions]),
     };
   }
 
@@ -81,15 +90,14 @@ function generateCloze(phrase: Phrase, distractors: Phrase[]): ClozeData {
 
   const uniqueWrong = [...new Set(wrongWords)].slice(0, 3);
   while (uniqueWrong.length < 3) {
-    const filler = `вариант${uniqueWrong.length}`;
-    uniqueWrong.push(filler);
+    uniqueWrong.push(`вариант${uniqueWrong.length + 1}`);
   }
 
   return {
     fullPhrase: phrase.russianPhrase,
     blankedPhrase: blankedWords.join(' '),
     correctWord,
-    options: shuffle([correctWord, ...uniqueWrong]).slice(0, 4),
+    options: shuffle([correctWord, ...uniqueWrong]),
   };
 }
 
