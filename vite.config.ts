@@ -6,7 +6,7 @@ import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
   return {
-    base: '/language/',
+    base: '/apps/language/',
     plugins: [
       react(),
       tailwindcss(),
@@ -15,7 +15,7 @@ export default defineConfig(() => {
         strategies: 'injectManifest',
         srcDir: 'src',
         filename: 'sw.ts',
-        includeAssets: ['icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
+        includeAssets: ['icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-192.png', 'icons/icon-maskable-512.png'],
         manifest: {
           name: 'Language With My Daughter',
           short_name: 'Language',
@@ -23,12 +23,14 @@ export default defineConfig(() => {
           theme_color: '#4f46e5',
           background_color: '#020617',
           display: 'standalone',
-          start_url: '/language/',
-          scope: '/language/',
+          start_url: '/apps/language/',
+          scope: '/apps/language/',
           icons: [
             {src: 'icons/icon.svg', sizes: '192x192 512x512', type: 'image/svg+xml', purpose: 'any'},
             {src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any'},
             {src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any'},
+            {src: 'icons/icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable'},
+            {src: 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable'},
           ],
         },
         injectManifest: {

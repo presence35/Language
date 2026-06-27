@@ -9,7 +9,7 @@ async function startServer() {
   app.use(express.json({ limit: '10mb' }));
 
   // TTS proxy via unauthenticated Google Translate API to bypass Free Tier limits
-  app.post('/language/api/tts', async (req, res) => {
+  app.post('/apps/language/api/tts', async (req, res) => {
     try {
       const { text, lang = 'ru' } = req.body;
       const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${lang}&q=${encodeURIComponent(text)}`;
@@ -49,7 +49,7 @@ async function startServer() {
     const distPath = isDist ? currentDir : path.join(currentDir, 'dist');
 
     // Serve static assets without base paths affecting fallback routes
-    app.use('/language', express.static(distPath)); // In case they use /language prefix
+    app.use('/apps/language', express.static(distPath)); // In case they use /language prefix
     app.use(express.static(distPath));
     
     app.use('/server.cjs', (req, res) => res.status(404).send('Not found'));

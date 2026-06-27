@@ -21,6 +21,13 @@ window.addEventListener('unhandledrejection', (e) => {
   console.warn('Unhandled promise rejection:', e.reason);
 });
 
+function setAppHeight() {
+  document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+}
+setAppHeight();
+window.addEventListener('resize', setAppHeight);
+window.addEventListener('orientationchange', setAppHeight);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

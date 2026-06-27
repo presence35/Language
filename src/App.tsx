@@ -181,7 +181,7 @@ export default function App() {
   ];
 
   return (
-    <div className="flex flex-col h-[100dvh] max-w-lg mx-auto bg-slate-950 border-x border-slate-900 shadow-2xl overflow-hidden font-sans">
+    <div className="flex flex-col h-[var(--app-height)] max-w-lg mx-auto bg-slate-950 border-x border-slate-900 shadow-2xl overflow-hidden font-sans">
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto no-scrollbar">
